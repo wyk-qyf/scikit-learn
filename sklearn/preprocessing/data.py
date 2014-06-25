@@ -148,6 +148,108 @@ def scale(X, axis=0, with_mean=True, with_std=True, copy=True):
     return X
 
 
+
+def winsorize_and_scale(X, axis=0, with_mean=True, with_std=True, copy=True,
+                        limits=(0,0)):
+    """ Winsorize and standardize a dataset along any axis
+
+    Center to the mean and component wise scale to unit variance.
+
+    Parameters
+    ----------
+    X : array-like or CSR matrix.
+        The data to center and scale.
+
+    axis : int (0 by default)
+        axis used to compute the means and standard deviations along. If 0,
+        independently standardize each feature, otherwise (if 1) standardize
+        each sample.
+
+    with_mean : boolean, True by default
+        If True, center the data before scaling.
+
+    with_std : boolean, True by default
+        If True, scale the data to unit variance (or equivalently,
+        unit standard deviation).
+
+    copy : boolean, optional, default is True
+        set to False to perform inplace row normalization and avoid a
+        copy (if the input is already a numpy array or a scipy.sparse
+        CSR matrix and if axis is 1).
+
+    limits : tuple (float,float), default=(0,0)
+        percentage (between 0 and 1) to cut on each side of the array.
+
+
+    Notes
+    -----
+    This implementation will refuse to center scipy.sparse matrices
+    since it would make them non-sparse and would potentially crash the
+    program with memory exhaustion problems.
+
+    Instead the caller is expected to either set explicitly
+    `with_mean=False` (in that case, only variance scaling will be
+    performed on the features of the CSR matrix) or to call `X.toarray()`
+    if he/she expects the materialized dense array to fit in memory.
+
+    To avoid memory copy the caller should pass a CSR matrix.
+
+    See also
+    --------
+    :class:`sklearn.preprocessing.StandardScaler` to perform centering and
+    scaling using the ``Transformer`` API (e.g. as part of a preprocessing
+    :class:`sklearn.pipeline.Pipeline`)
+    """
+    if sparse.issparse(X):
+        if with_mean:
+            raise ValueError(
+                "Cannot center sparse matrices: pass `with_mean=False` instead"
+                " See docstring for motivation and alternatives.")
+        if axis != 0:
+            raise ValueError("Can only scale sparse matrix on axis=0, "
+                             " got axis=%d" % axis)
+        warn_if_not_float(X, estimator='The scale function')
+        if not sparse.isspmatrix_csr(X):
+            X = X.tocsr()
+            copy = False
+        if copy:
+            X = X.copy()
+        _, var = mean_variance_axis0(X)
+        var[var == 0.0] = 1.0
+        inplace_column_scale(X, 1 / np.sqrt(var))
+    else:
+        X = np.asarray(X)
+        warn_if_not_float(X, estimator='The scale function')
+        if copy:
+            X = X.copy()
+        # Xr is a view on the original array that enables easy use of
+        # broadcasting on the axis in which we are interested in
+        Xr = np.rollaxis(X, axis)
+        if limits != (0,0):
+            n, p = np.shape(Xr)
+            low_ind = int (np.round(limits[0]*n))
+            up_ind = int (np.round(limits[1]*n))
+            sorted_ind = Xr.argsort(axis=axis)
+#            print "Xr",Xr
+#            print "low_ind",low_ind
+#            print "up_ind",up_ind
+#            print "sorted_ind",sorted_ind
+            for i in range(0,p):
+                Xr[:,i][sorted_ind[:low_ind,i]] = Xr[:,i][sorted_ind[low_ind,i]]
+                Xr[:,i][sorted_ind[up_ind-1:,i]] = Xr[:,i][sorted_ind[up_ind-1,i]]
+#            print "X=",X
+        mean_, std_ = _mean_and_std(
+            X, axis, with_mean=with_mean, with_std=with_std)
+        if with_mean:
+            Xr -= mean_
+        if with_std:
+            Xr /= std_
+            
+    return X
+
+
+
+
 class MinMaxScaler(BaseEstimator, TransformerMixin):
     """Standardizes features by scaling each feature to a given range.
 

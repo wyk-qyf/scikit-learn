@@ -21,6 +21,7 @@ from sklearn.preprocessing.data import normalize
 from sklearn.preprocessing.data import OneHotEncoder
 from sklearn.preprocessing.data import StandardScaler
 from sklearn.preprocessing.data import scale
+from sklearn.preprocessing.data import winsorize_and_scale
 from sklearn.preprocessing.data import MinMaxScaler
 from sklearn.preprocessing.data import add_dummy_feature
 from sklearn.preprocessing.data import PolynomialFeatures
@@ -88,6 +89,11 @@ def test_scaler_1d():
     assert_array_almost_equal(X_scaled.mean(axis=0), 0.0)
     assert_array_almost_equal(X_scaled.std(axis=0), 1.0)
 
+    X_scaled = winsorize_and_scale(X,limits=(0.1,0.9))
+    assert_array_almost_equal(X_scaled.mean(axis=0), 0.0)
+    assert_array_almost_equal(X_scaled.std(axis=0), 1.0)
+
+
 
 def test_scaler_2d_arrays():
     """Test scaling of 2d array along first axis"""
@@ -119,6 +125,17 @@ def test_scaler_2d_arrays():
     assert_array_almost_equal(X_scaled.std(axis=1), 4 * [1.0])
     # Check that the data hasn't been modified
     assert_true(X_scaled is not X)
+
+    X_scaled = winsorize_and_scale(X, axis=1, with_std=False, limits=(0.1,0.9))
+    assert_false(np.any(np.isnan(X_scaled)))
+    assert_array_almost_equal(X_scaled.mean(axis=1), 4 * [0.0])
+    X_scaled = winsorize_and_scale(X, axis=1, with_std=True, limits=(0.1,0.9))
+    assert_false(np.any(np.isnan(X_scaled)))
+    assert_array_almost_equal(X_scaled.mean(axis=1), 4 * [0.0])
+    assert_array_almost_equal(X_scaled.std(axis=1), 4 * [1.0])
+    # Check that the data hasn't been modified
+    assert_true(X_scaled is not X)
+
 
     X_scaled = scaler.fit(X).transform(X, copy=False)
     assert_false(np.any(np.isnan(X_scaled)))
