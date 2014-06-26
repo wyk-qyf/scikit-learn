@@ -89,9 +89,9 @@ def test_scaler_1d():
     assert_array_almost_equal(X_scaled.mean(axis=0), 0.0)
     assert_array_almost_equal(X_scaled.std(axis=0), 1.0)
 
-    X_scaled = winsorize_and_scale(X,limits=(0.1,0.9))
-    assert_array_almost_equal(X_scaled.mean(axis=0), 0.0)
-    assert_array_almost_equal(X_scaled.std(axis=0), 1.0)
+    X_win_scaled = winsorize_and_scale(X,limits=(0.1,0.9))
+    assert_array_almost_equal(X_win_scaled.mean(axis=0), 0.0)
+    assert_array_almost_equal(X_win_scaled.std(axis=0), 1.0)
 
 
 
@@ -126,17 +126,6 @@ def test_scaler_2d_arrays():
     # Check that the data hasn't been modified
     assert_true(X_scaled is not X)
 
-    X_scaled = winsorize_and_scale(X, axis=1, with_std=False, limits=(0.1,0.9))
-    assert_false(np.any(np.isnan(X_scaled)))
-    assert_array_almost_equal(X_scaled.mean(axis=1), 4 * [0.0])
-    X_scaled = winsorize_and_scale(X, axis=1, with_std=True, limits=(0.1,0.9))
-    assert_false(np.any(np.isnan(X_scaled)))
-    assert_array_almost_equal(X_scaled.mean(axis=1), 4 * [0.0])
-    assert_array_almost_equal(X_scaled.std(axis=1), 4 * [1.0])
-    # Check that the data hasn't been modified
-    assert_true(X_scaled is not X)
-
-
     X_scaled = scaler.fit(X).transform(X, copy=False)
     assert_false(np.any(np.isnan(X_scaled)))
     assert_array_almost_equal(X_scaled.mean(axis=0), 5 * [0.0])
@@ -154,6 +143,22 @@ def test_scaler_2d_arrays():
     # Check that X has not been copied
     assert_true(X_scaled is not X)
 
+    X_win_scaled = winsorize_and_scale(X, axis=1, with_std=False, limits=(0.1,0.9))
+    assert_false(np.any(np.isnan(X_win_scaled)))
+    assert_array_almost_equal(X_win_scaled.mean(axis=1), 4 * [0.0])
+    X_win_scaled = winsorize_and_scale(X, axis=1, with_std=True, limits=(0.1,0.9))
+    assert_false(np.any(np.isnan(X_win_scaled)))
+    assert_array_almost_equal(X_win_scaled.mean(axis=1), 4 * [0.0])
+    assert_array_almost_equal(X_win_scaled.std(axis=1), 4 * [1.0])
+    # Check that the data hasn't been modified
+    assert_true(X_win_scaled is not X)
+
+    X=rng.randn(10,15)
+    X[0,:] = np.inf
+    X_win_scaled = winsorize_and_scale(X, axis=1, with_std=True, limits=(0.1,0.9))
+    #check that the
+    assert_false(np.any(np.isinf(1/X_win_scaled[1,:])))
+    
 
 def test_min_max_scaler_iris():
     X = iris.data
