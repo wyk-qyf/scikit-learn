@@ -229,15 +229,15 @@ def winsorize_and_scale(X, axis=0, with_mean=True, with_std=True, copy=True,
             n, p = np.shape(Xr)
             low_ind = int (np.round(limits[0]*n))
             up_ind = int (np.round(limits[1]*n))
-            sorted_ind = Xr.argsort(axis=axis)
-#            print "Xr",Xr
-#            print "low_ind",low_ind
-#            print "up_ind",up_ind
-#            print "sorted_ind",sorted_ind
+            sorted_ind = Xr.argsort(axis=0)
+            print "Xr",Xr
+            print "low_ind",low_ind
+            print "up_ind",up_ind
+            print "sorted_ind",sorted_ind
             for i in range(0,p):
                 Xr[:,i][sorted_ind[:low_ind,i]] = Xr[:,i][sorted_ind[low_ind,i]]
                 Xr[:,i][sorted_ind[up_ind-1:,i]] = Xr[:,i][sorted_ind[up_ind-1,i]]
-#            print "X=",X
+            print "winsorized X=",X
         mean_, std_ = _mean_and_std(
             X, axis, with_mean=with_mean, with_std=with_std)
         if with_mean:
