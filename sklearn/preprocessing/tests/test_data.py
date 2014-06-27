@@ -154,9 +154,10 @@ def test_scaler_2d_arrays():
     assert_true(X_win_scaled is not X)
 
     X=rng.randn(10,15)
-    X[0,:] = np.inf
+    X[:,1] = np.inf
     X_win_scaled = winsorize_and_scale(X, axis=1, with_std=True, limits=(0.1,0.9))
-    #check that the
+    # Check that the outliers "inf" are eliminated before scaling
+    assert_false(np.any(np.isnan(X_win_scaled)))
     assert_false(np.any(np.isinf(1/X_win_scaled[1,:])))
     
 

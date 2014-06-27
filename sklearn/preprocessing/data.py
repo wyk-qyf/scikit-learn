@@ -160,10 +160,10 @@ def winsorize_and_scale(X, axis=0, with_mean=True, with_std=True, copy=True,
     X : array-like or CSR matrix.
         The data to center and scale.
 
-    axis : int (0 by default). 
-        Axis used to cut extreme points and to compute the means and 
-        standard deviations along. If 0, independently standardize each feature,
-        otherwise (if 1) standardize each sample.
+    axis : int (0 by default).
+        Axis used to cut extreme points and to compute the means and
+        standard deviations along. If 0, independently standardize each
+        feature, otherwise (if 1) standardize each sample.
 
     with_mean : boolean, True by default
         If True, center the data before scaling.
@@ -210,12 +210,12 @@ def winsorize_and_scale(X, axis=0, with_mean=True, with_std=True, copy=True,
             raise ValueError(
                 "Cannot center sparse matrices: pass `with_mean=False` instead"
                 " See docstring for motivation and alternatives.")
-        if limits != (0,1):
+        if limits != (0, 1):
             raise ValueError(
                 "Cannot winsorize sparse matrices: let `limits=(0,1)` instead")
         if axis != 0:
-            raise ValueError("Can only scale or winsorize sparse matrix on axis=0, "
-                             " got axis=%d" % axis)
+            raise ValueError("Can only scale/winsorize sparse matrix on "
+                             "axis=0, got axis=%d" % axis)
         warn_if_not_float(X, estimator='The scale function')
         if not sparse.isspmatrix_csr(X):
             X = X.tocsr()
@@ -233,8 +233,8 @@ def winsorize_and_scale(X, axis=0, with_mean=True, with_std=True, copy=True,
         # Xr is a view on the original array that enables easy use of
         # broadcasting on the axis in which we are interested in
         Xr = np.rollaxis(X, axis)
-        if limits != (0,1):
-            if len(np.shape(Xr))==1:
+        if limits != (0, 1):
+            if len(np.shape(Xr)) == 1:
                 n = np.shape(Xr)
                 low_ind, up_ind = (np.array(limits) * n).astype(np.int)
                 sorted_ind = Xr.argsort(axis=0)
@@ -246,7 +246,7 @@ def winsorize_and_scale(X, axis=0, with_mean=True, with_std=True, copy=True,
                 Xr[sorted_ind[up_ind-1:]] = Xr[sorted_ind[up_ind-1]]
                 print "winsorized X=", X
 
-            if len(np.shape(Xr))==2:
+            if len(np.shape(Xr)) == 2:
                 n, p = np.shape(Xr)
                 low_ind, up_ind = (np.array(limits) * n).astype(np.int)
                 sorted_ind = Xr.argsort(axis=0)
@@ -255,8 +255,11 @@ def winsorize_and_scale(X, axis=0, with_mean=True, with_std=True, copy=True,
                 print "up_ind", up_ind
                 print "sorted_ind", sorted_ind
                 for i in range(p):
-                    Xr[:,i][sorted_ind[:low_ind,i]] = Xr[:,i][sorted_ind[low_ind,i]]
-                    Xr[:,i][sorted_ind[up_ind-1:,i]] = Xr[:,i][sorted_ind[up_ind-1,i]]
+                    Xr[:, i][sorted_ind[:low_ind, i]] = Xr[:, i][sorted_ind
+                                                                 [low_ind, i]]
+                    Xr[:, i][sorted_ind[up_ind-1:, i]] = Xr[:, i][sorted_ind
+                                                                  [up_ind-1,
+                                                                   i]]
                 print "winsorized X=", X
         mean_, std_ = _mean_and_std(
             X, axis, with_mean=with_mean, with_std=with_std)
@@ -265,8 +268,6 @@ def winsorize_and_scale(X, axis=0, with_mean=True, with_std=True, copy=True,
         if with_std:
             Xr /= std_
     return X
-
-
 
 
 class MinMaxScaler(BaseEstimator, TransformerMixin):
