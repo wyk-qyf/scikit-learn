@@ -68,6 +68,9 @@ cdef class Tree:
     cpdef np.ndarray apply(self, object X)
     cdef np.ndarray _apply_dense(self, object X)
     cdef np.ndarray _apply_sparse_csr(self, object X)
+    cpdef np.ndarray apply_depth(self, object X)
+    cdef np.ndarray _apply_depth_dense(self, object X)
+    cdef np.ndarray _apply_depth_sparse_csr(self, object X)
 
     cpdef compute_feature_importances(self, normalize=*)
 

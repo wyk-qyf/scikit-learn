@@ -867,6 +867,139 @@ cdef class Tree:
 
         return out
 
+    cpdef np.ndarray apply_depth(self, object X):
+        """Finds the depth level of the leaf node for each sample in X."""
+        if issparse(X):
+            return self._apply_depth_sparse_csr(X)
+        else:
+            return self._apply_depth_dense(X)
+
+    cdef inline np.ndarray _apply_depth_dense(self, object X):
+        """Finds the depth level of the leaf node for each sample in X."""
+
+        # Check input
+        if not isinstance(X, np.ndarray):
+            raise ValueError("X should be in np.ndarray format, got %s"
+                             % type(X))
+
+        if X.dtype != DTYPE:
+            raise ValueError("X.dtype should be np.float32, got %s" % X.dtype)
+
+        # Extract input
+        cdef np.ndarray X_ndarray = X
+        cdef DTYPE_t* X_ptr = <DTYPE_t*> X_ndarray.data
+        cdef SIZE_t X_sample_stride = <SIZE_t> X.strides[0] / <SIZE_t> X.itemsize
+        cdef SIZE_t X_fx_stride = <SIZE_t> X.strides[1] / <SIZE_t> X.itemsize
+        cdef SIZE_t n_samples = X.shape[0]
+
+        # Initialize output
+        cdef np.ndarray[DOUBLE_t] depth = np.zeros((n_samples,), dtype=np.float64)
+        cdef DOUBLE_t* depth_ptr = <DOUBLE_t*> depth.data
+
+
+        # Initialize auxiliary data-structure
+        cdef Node* node = NULL
+        cdef SIZE_t i = 0
+        cdef DOUBLE_t cpt = 0.
+
+        with nogil:
+            for i in range(n_samples):
+                node = self.nodes
+                cpt = 0.
+                # While node not a leaf
+                while node.left_child != _TREE_LEAF:
+                    # ... and node.right_child != _TREE_LEAF:
+                    if X_ptr[X_sample_stride * i +
+                             X_fx_stride * node.feature] <= node.threshold:
+                        node = &self.nodes[node.left_child]
+                    else:
+                        node = &self.nodes[node.right_child]
+                    cpt += 1.
+                # Depth of node i = cpt + average path length
+                depth_ptr[i] = <DOUBLE_t> cpt + average_path_length(node.n_node_samples)
+
+        return depth
+
+
+    cdef inline np.ndarray _apply_depth_sparse_csr(self, object X):
+        """Finds the terminal region (=leaf node) for each sample in sparse X.
+
+        """
+        # Check input
+        if not isinstance(X, csr_matrix):
+            raise ValueError("X should be in csr_matrix format, got %s"
+                             % type(X))
+
+        if X.dtype != DTYPE:
+            raise ValueError("X.dtype should be np.float32, got %s" % X.dtype)
+
+        # Extract input
+        cdef np.ndarray[ndim=1, dtype=DTYPE_t] X_data_ndarray = X.data
+        cdef np.ndarray[ndim=1, dtype=INT32_t] X_indices_ndarray  = X.indices
+        cdef np.ndarray[ndim=1, dtype=INT32_t] X_indptr_ndarray  = X.indptr
+
+        cdef DTYPE_t* X_data = <DTYPE_t*>X_data_ndarray.data
+        cdef INT32_t* X_indices = <INT32_t*>X_indices_ndarray.data
+        cdef INT32_t* X_indptr = <INT32_t*>X_indptr_ndarray.data
+
+        cdef SIZE_t n_samples = X.shape[0]
+        cdef SIZE_t n_features = X.shape[1]
+
+        # Initialize output
+        cdef np.ndarray[DOUBLE_t, ndim=1] depth = np.zeros((n_samples,),
+                                                       dtype=np.float64)
+        cdef DOUBLE_t* depth_ptr = <DOUBLE_t*> depth.data
+
+        # Initialize auxiliary data-structure
+        cdef DTYPE_t feature_value = 0.
+        cdef Node* node = NULL
+        cdef DTYPE_t* X_sample = NULL
+        cdef SIZE_t i = 0
+        cdef INT32_t k = 0
+        cdef DOUBLE_t cpt = 0.
+
+        # feature_to_sample as a data structure records the last seen sample
+        # for each feature; functionally, it is an efficient way to identify
+        # which features are nonzero in the present sample.
+        cdef SIZE_t* feature_to_sample = NULL
+
+        safe_realloc(&X_sample, n_features * sizeof(DTYPE_t))
+        safe_realloc(&feature_to_sample, n_features * sizeof(SIZE_t))
+
+        with nogil:
+            memset(feature_to_sample, -1, n_features * sizeof(SIZE_t))
+
+            for i in range(n_samples):
+                node = self.nodes
+                cpt = 0.
+
+                for k in range(X_indptr[i], X_indptr[i + 1]):
+                    feature_to_sample[X_indices[k]] = i
+                    X_sample[X_indices[k]] = X_data[k]
+
+                # While node not a leaf
+                while node.left_child != _TREE_LEAF:
+                    # ... and node.right_child != _TREE_LEAF:
+                    if feature_to_sample[node.feature] == i:
+                        feature_value = X_sample[node.feature]
+
+                    else:
+                        feature_value = 0.
+
+                    if feature_value <= node.threshold:
+                        node = &self.nodes[node.left_child]
+                    else:
+                        node = &self.nodes[node.right_child]
+                    cpt += 1.
+                # Depth of node i = cpt + average path length
+                depth_ptr[i] = <DOUBLE_t> cpt + average_path_length(node.n_node_samples)
+            # Free auxiliary arrays
+            free(X_sample)
+            free(feature_to_sample)
+
+        return depth
+
+
     cpdef compute_feature_importances(self, normalize=True):
         """Computes the importance of each feature (aka variable)."""
         cdef Node* left
@@ -940,3 +1073,16 @@ cdef class Tree:
         Py_INCREF(self)
         arr.base = <PyObject*> self
         return arr
+
+
+    cdef inline DOUBLE_t average_path_length(SIZE_t n) nogil:
+        ''' Return the average path length in a n samples iTree, which is equal to
+        the average path length of an unsuccessful BST search - since the
+        latter has the same structure as an isolation tree.'''
+        cdef DOUBLE_t harmonic_number = 0.
+        if n > 1:
+            harmonic_number = <DOUBLE_t> ln(n) 
+            harmonic_number += 0.5772156649
+            return 2. * harmonic_number - 2. * (n - 1.) / n
+        else:
+            return 0.
