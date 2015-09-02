@@ -45,7 +45,7 @@ import warnings
 from warnings import warn
 
 from abc import ABCMeta, abstractmethod
-
+import numpy as np
 from scipy.sparse import issparse
 
 from ..base import ClassifierMixin, RegressorMixin
@@ -67,6 +67,7 @@ __all__ = ["RandomForestClassifier",
            "ExtraTreesClassifier",
            "ExtraTreesRegressor",
            "RandomTreesEmbedding"]
+
 MAX_INT = np.iinfo(np.int32).max
 
 def _generate_sample_indices(random_state, n_samples):
@@ -1225,8 +1226,7 @@ class ExtraTreesClassifier(ForestClassifier):
             n_estimators=n_estimators,
             estimator_params=("criterion", "max_depth", "min_samples_split",
                               "min_samples_leaf", "min_weight_fraction_leaf",
-                              "max_features", "max_leaf_nodes",
-                              "random_state"),
+                              "max_features", "max_leaf_nodes", "random_state"),
             bootstrap=bootstrap,
             oob_score=oob_score,
             n_jobs=n_jobs,
