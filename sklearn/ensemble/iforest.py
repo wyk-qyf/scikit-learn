@@ -151,9 +151,8 @@ class IsolationForest(BaseBagging):  # code structure from RandomTreesEmbedding
         # ensure that max_sample is in [1, n_samples]:
         n_samples = X.shape[0]
         if not (self.max_samples <= n_samples):
-            warn("max_samples is larger than the total number of samples"
-                 " n_samples. Corrected as max_samples=n_samples")
-            self.max_samples = n_samples
+            raise ValueError("max_samples (default=256) is greater than the total" 
+                             " number of samples")
         if not (0 < self.max_samples):
             raise ValueError("max_samples has to be positive")
 

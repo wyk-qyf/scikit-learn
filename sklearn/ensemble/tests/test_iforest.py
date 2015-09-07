@@ -95,7 +95,7 @@ def test_iforest_error():
                   IsolationForest(max_samples=0.0).fit, X)
     assert_raises(ValueError,
                   IsolationForest(max_samples=2.0).fit, X)
-    assert_warns(UserWarning,
+    assert_raises(ValueError,
                  IsolationForest(max_samples=1000).fit, X)
     # cannot check for string values
 
@@ -133,7 +133,8 @@ def test_iforest_gridsearch():
     # Grid search with scoring based on decision_function
     parameters = {'n_estimators': (1, 2, 100)}
 
-    grid_search = GridSearchCV(IsolationForest(max_samples=0.1),
+    grid_search = GridSearchCV(IsolationForest(random_state=0,
+                                               max_samples=0.1),
                                parameters,
                                scoring="roc_auc").fit(X, y)
     best_score = grid_search.best_score_
