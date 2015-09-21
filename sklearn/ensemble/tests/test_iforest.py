@@ -12,7 +12,6 @@ import numpy as np
 from sklearn.utils.testing import assert_array_equal
 from sklearn.utils.testing import assert_array_almost_equal
 from sklearn.utils.testing import assert_raises
-from sklearn.utils.testing import assert_warns
 
 from sklearn.grid_search import GridSearchCV, ParameterGrid
 from sklearn.ensemble import IsolationForest
@@ -93,9 +92,9 @@ def test_iforest_error():
                   IsolationForest(max_samples=-1).fit, X)
     assert_raises(ValueError,
                   IsolationForest(max_samples=0.0).fit, X)
-    assert_warns(UserWarning,
+    assert_raises(ValueError,
                   IsolationForest(max_samples=2.0).fit, X)
-    assert_warns(UserWarning,
+    assert_raises(ValueError,
                   IsolationForest(max_samples=1000).fit, X)
     # cannot check for string values
 

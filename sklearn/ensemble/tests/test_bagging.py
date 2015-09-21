@@ -388,9 +388,9 @@ def test_error():
                   BaggingClassifier(base, max_samples=-1).fit, X, y)
     assert_raises(ValueError,
                   BaggingClassifier(base, max_samples=0.0).fit, X, y)
-    assert_warns(UserWarning,
+    assert_raises(ValueError,
                   BaggingClassifier(base, max_samples=2.0).fit, X, y)
-    assert_warns(UserWarning,
+    assert_raises(ValueError,
                   BaggingClassifier(base, max_samples=1000).fit, X, y)
     assert_raises(ValueError,
                   BaggingClassifier(base, max_samples="foobar").fit, X, y)
