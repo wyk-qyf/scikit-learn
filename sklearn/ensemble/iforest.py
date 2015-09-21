@@ -52,6 +52,8 @@ class IsolationForest(BaseBagging):  # code structure from RandomTreesEmbedding
         The number of samples to draw from X to train each base estimator.
             - If int, then draw `max_samples` samples.
             - If float, then draw `max_samples * X.shape[0]` samples.
+        If max_samples is larger than number of samples provided,
+        all samples with be used for all trees (no sampling).
 
     max_features : int or float, optional (default=1.0)
         The number of features to draw from X to train each base estimator.
@@ -84,6 +86,9 @@ class IsolationForest(BaseBagging):  # code structure from RandomTreesEmbedding
         The subset of drawn samples (i.e., the in-bag samples) for each base
         estimator.
 
+    max_samples_ : integer
+        The actual number of samples
+
     References
     ----------
     .. [1] Liu, Fei Tony, Ting, Kai Ming and Zhou, Zhi-Hua. "Isolation forest."
@@ -91,7 +96,6 @@ class IsolationForest(BaseBagging):  # code structure from RandomTreesEmbedding
     .. [2] Liu, Fei Tony, Ting, Kai Ming and Zhou, Zhi-Hua. "Isolation-based
            anomaly detection." ACM Transactions on Knowledge Discovery from
            Data (TKDD) 6.1 (2012): 3.
-
     """
 
     def __init__(self,
@@ -135,7 +139,6 @@ class IsolationForest(BaseBagging):  # code structure from RandomTreesEmbedding
         -------
         self : object
             Returns self.
-
         """
         # ensure_2d=False because there are actually unit test checking we fail
         # for 1d.
@@ -149,16 +152,17 @@ class IsolationForest(BaseBagging):  # code structure from RandomTreesEmbedding
         y = rnd.uniform(size=X.shape[0])
 
         # ensure that max_sample is in [1, n_samples]:
+        max_samples = self.max_samples
         n_samples = X.shape[0]
-        if not (self.max_samples <= n_samples):
-            warn("max_samples (default=256) is greater than the "
-                 "total number of samples. Iforest will used "
-                 "max_samples=n_samples instead")
-            max_samples_ = n_samples
-        else:
-            max_samples_ = self.max_samples
-        super(IsolationForest, self).fit(X, y, sample_weight=sample_weight, 
-                                         max_samples_=max_samples_)
+        if max_samples > n_samples:
+            warn("max_samples (%s) is greater than the "
+                 "total number of samples (%s). max_samples "
+                 "will be set to n_samples for estimation."
+                 % (self.max_samples, n_samples))
+            max_samples = n_samples
+
+        super(IsolationForest, self)._fit(X, y, max_samples,
+                                          sample_weight=sample_weight)
         return self
 
     def _cost(self, n):

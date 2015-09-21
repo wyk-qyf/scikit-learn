@@ -13,6 +13,9 @@ from sklearn.utils.testing import assert_array_equal
 from sklearn.utils.testing import assert_array_almost_equal
 from sklearn.utils.testing import assert_raises
 from sklearn.utils.testing import assert_warns
+from sklearn.utils.testing import assert_equal
+from sklearn.utils.testing import assert_true
+from sklearn.utils.testing import ignore_warnings
 
 from sklearn.grid_search import GridSearchCV, ParameterGrid
 from sklearn.ensemble import IsolationForest
@@ -45,12 +48,13 @@ def test_iforest():
     X_test = np.array([[2, 1], [1, 1]])
 
     grid = ParameterGrid({"n_estimators": [3],
-                          "max_samples": [0.5, 1.0],
+                          "max_samples": [0.5, 1.0, 3],
                           "bootstrap": [True, False]})
 
-    for params in grid:
-        IsolationForest(random_state=rng,
-                        **params).fit(X_train).predict(X_test)
+    with ignore_warnings():
+        for params in grid:
+            IsolationForest(random_state=rng,
+                            **params).fit(X_train).predict(X_test)
 
 
 def test_iforest_sparse():
@@ -96,7 +100,7 @@ def test_iforest_error():
     assert_raises(ValueError,
                   IsolationForest(max_samples=2.0).fit, X)
     assert_warns(UserWarning,
-                  IsolationForest(max_samples=1000).fit, X)
+                 IsolationForest(max_samples=1000).fit, X)
     # cannot check for string values
 
 
@@ -139,5 +143,5 @@ def test_iforest_gridsearch():
                                scoring="roc_auc").fit(X, y)
     best_score = grid_search.best_score_
     best_params = grid_search.best_params_
-    assert best_score > 0.7
-    assert best_params['n_estimators'] == 100
+    assert_true(best_score > 0.7)
+    assert_equal(best_params['n_estimators'], 100)
