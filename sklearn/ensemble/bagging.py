@@ -271,13 +271,17 @@ class BaseBagging(with_metaclass(ABCMeta, BaseEnsemble)):
         # Check parameters
         self._validate_estimator()
 
-        if max_samples_ != None:
-            self.max_samples = max_samples_
+        if max_samples_ == None:
+            if isinstance(self.max_samples, (numbers.Integral, np.integer)):
+                max_samples = self.max_samples
+            else:  # float
+                max_samples = int(self.max_samples * X.shape[0])
 
-        if isinstance(self.max_samples, (numbers.Integral, np.integer)):
-            max_samples = self.max_samples
-        else:  # float
-            max_samples = int(self.max_samples * X.shape[0])
+        else:
+            if isinstance(self.max_samples, (numbers.Integral, np.integer)):
+                max_samples = max_samples_
+            else:  # float
+                max_samples = int(max_samples_ * X.shape[0])
 
         if not (0 < max_samples <= X.shape[0]):
             raise ValueError("max_samples must be in (0, n_samples]")
