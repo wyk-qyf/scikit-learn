@@ -232,7 +232,7 @@ class BaseBagging(with_metaclass(ABCMeta, BaseEnsemble)):
         self.random_state = random_state
         self.verbose = verbose
 
-    def fit(self, X, y, sample_weight=None):
+    def fit(self, X, y, sample_weight=None, max_samples_=None):
         """Build a Bagging ensemble of estimators from the training
            set (X, y).
 
@@ -251,6 +251,9 @@ class BaseBagging(with_metaclass(ABCMeta, BaseEnsemble)):
             Note that this is supported only if the base estimator supports
             sample weighting.
 
+        max_samples_ : int or float, optional (default=None)
+            argument to use instead of self.max_samples
+
         Returns
         -------
         self : object
@@ -267,6 +270,9 @@ class BaseBagging(with_metaclass(ABCMeta, BaseEnsemble)):
 
         # Check parameters
         self._validate_estimator()
+
+        if max_samples_ != None:
+            self.max_samples = max_samples_
 
         if isinstance(self.max_samples, (numbers.Integral, np.integer)):
             max_samples = self.max_samples

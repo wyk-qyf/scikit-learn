@@ -5,6 +5,7 @@
 from __future__ import division
 
 import numpy as np
+from warnings import warn
 
 from scipy.sparse import issparse
 
@@ -150,12 +151,14 @@ class IsolationForest(BaseBagging):  # code structure from RandomTreesEmbedding
         # ensure that max_sample is in [1, n_samples]:
         n_samples = X.shape[0]
         if not (self.max_samples <= n_samples):
-            raise ValueError("max_samples (default=256) is greater than the "
-                             "total number of samples")
-        if not (0 < self.max_samples):
-            raise ValueError("max_samples has to be positive")
-
-        super(IsolationForest, self).fit(X, y, sample_weight=sample_weight)
+            warn("max_samples (default=256) is greater than the "
+                 "total number of samples. Iforest will used "
+                 "max_samples=n_samples instead")
+            max_samples_ = n_samples
+        else:
+            max_samples_ = self.max_samples
+        super(IsolationForest, self).fit(X, y, sample_weight=sample_weight, 
+                                         max_samples_=max_samples_)
         return self
 
     def _cost(self, n):
