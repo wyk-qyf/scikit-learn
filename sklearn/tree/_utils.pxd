@@ -50,6 +50,9 @@ cdef double rand_uniform(double low, double high,
 
 cdef double log(double x) nogil
 
+
+cdef DOUBLE_t average_path_length(SIZE_t n) nogil
+
 # =============================================================================
 # Stack data structure
 # =============================================================================

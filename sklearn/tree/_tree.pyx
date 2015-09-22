@@ -36,6 +36,7 @@ from ._utils cimport PriorityHeap
 from ._utils cimport PriorityHeapRecord
 from ._utils cimport safe_realloc
 from ._utils cimport sizet_ptr_to_ndarray
+from ._utils cimport average_path_length
 
 cdef extern from "numpy/arrayobject.h":
     object PyArray_NewFromDescr(object subtype, np.dtype descr,
@@ -1073,16 +1074,3 @@ cdef class Tree:
         Py_INCREF(self)
         arr.base = <PyObject*> self
         return arr
-
-
-    cdef inline DOUBLE_t average_path_length(SIZE_t n) nogil:
-        ''' Return the average path length in a n samples iTree, which is equal to
-        the average path length of an unsuccessful BST search - since the
-        latter has the same structure as an isolation tree.'''
-        cdef DOUBLE_t harmonic_number = 0.
-        if n > 1:
-            harmonic_number = <DOUBLE_t> ln(n) 
-            harmonic_number += 0.5772156649
-            return 2. * harmonic_number - 2. * (n - 1.) / n
-        else:
-            return 0.

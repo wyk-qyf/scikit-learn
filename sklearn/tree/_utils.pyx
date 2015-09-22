@@ -83,6 +83,19 @@ cdef inline double log(double x) nogil:
     return ln(x) / ln(2.0)
 
 
+cdef inline DOUBLE_t average_path_length(SIZE_t n) nogil:
+    ''' Return the average path length in a n samples iTree, which is equal to
+    the average path length of an unsuccessful BST search - since the
+    latter has the same structure as an isolation tree.'''
+    cdef DOUBLE_t harmonic_number = 0.
+    if n > 1:
+        harmonic_number = <DOUBLE_t> ln(n) 
+        harmonic_number += 0.5772156649
+        return 2. * harmonic_number - 2. * (n - 1.) / n
+    else:
+        return 0.
+
+
 # =============================================================================
 # Stack data structure
 # =============================================================================
