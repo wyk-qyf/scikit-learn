@@ -5,7 +5,7 @@ IsolationForest example
 
 An example using IsolationForest for anomaly detection.
 
-IsolationForest consists in 'isolate' the observations by randomly selecting
+IsolationForest consists in 'isolating' the observations by randomly selecting
 a feature and then randomly selecting a split value between the maximum and
 minimum values of the selected feature.
 
@@ -32,7 +32,6 @@ from sklearn.ensemble import IsolationForest
 
 np.random.seed(42)
 
-xx, yy = np.meshgrid(np.linspace(-5, 5, 50), np.linspace(-5, 5, 50))
 # Generate train data
 X = 0.3 * np.random.randn(100, 2)
 X_train = np.r_[X + 2, X - 2]
@@ -50,6 +49,7 @@ y_pred_test = clf.predict(X_test)
 y_pred_outliers = clf.predict(X_outliers)
 
 # plot the line, the samples, and the nearest vectors to the plane
+xx, yy = np.meshgrid(np.linspace(-5, 5, 50), np.linspace(-5, 5, 50))
 Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
 Z = Z.reshape(xx.shape)
 

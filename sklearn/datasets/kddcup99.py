@@ -28,7 +28,6 @@ from ..externals import joblib
 from ..utils import check_random_state
 from ..utils import shuffle as sh
 
-import gzip
 
 URL10 = ('http://archive.ics.uci.edu/ml/'
          'machine-learning-databases/kddcup99-mld/kddcup.data_10_percent.gz')

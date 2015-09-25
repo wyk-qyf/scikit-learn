@@ -901,12 +901,12 @@ cdef class Tree:
         # Initialize auxiliary data-structure
         cdef Node* node = NULL
         cdef SIZE_t i = 0
-        cdef DOUBLE_t cpt = 0.
+        cdef DOUBLE_t current_depth = 0.
 
         with nogil:
             for i in range(n_samples):
                 node = self.nodes
-                cpt = 0.
+                current_depth = 0.
                 # While node not a leaf
                 while node.left_child != _TREE_LEAF:
                     # ... and node.right_child != _TREE_LEAF:
@@ -915,9 +915,9 @@ cdef class Tree:
                         node = &self.nodes[node.left_child]
                     else:
                         node = &self.nodes[node.right_child]
-                    cpt += 1.
-                # Depth of node i = cpt + average path length
-                depth_ptr[i] = <DOUBLE_t> cpt + average_path_length(node.n_node_samples)
+                    current_depth += 1.
+                # Depth of node i = current_depth + average path length
+                depth_ptr[i] = <DOUBLE_t> current_depth + average_path_length(node.n_node_samples)
 
         return depth
 
@@ -957,7 +957,7 @@ cdef class Tree:
         cdef DTYPE_t* X_sample = NULL
         cdef SIZE_t i = 0
         cdef INT32_t k = 0
-        cdef DOUBLE_t cpt = 0.
+        cdef DOUBLE_t current_depth = 0.
 
         # feature_to_sample as a data structure records the last seen sample
         # for each feature; functionally, it is an efficient way to identify
@@ -972,7 +972,7 @@ cdef class Tree:
 
             for i in range(n_samples):
                 node = self.nodes
-                cpt = 0.
+                current_depth = 0.
 
                 for k in range(X_indptr[i], X_indptr[i + 1]):
                     feature_to_sample[X_indices[k]] = i
@@ -991,9 +991,9 @@ cdef class Tree:
                         node = &self.nodes[node.left_child]
                     else:
                         node = &self.nodes[node.right_child]
-                    cpt += 1.
-                # Depth of node i = cpt + average path length
-                depth_ptr[i] = <DOUBLE_t> cpt + average_path_length(node.n_node_samples)
+                    current_depth += 1.
+                # Depth of node i = current_depth + average path length
+                depth_ptr[i] = <DOUBLE_t> current_depth + average_path_length(node.n_node_samples)
             # Free auxiliary arrays
             free(X_sample)
             free(feature_to_sample)
