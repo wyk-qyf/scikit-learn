@@ -197,7 +197,7 @@ Isolation Forest
 
 One efficient way of performing outlier detection in high-dimensional datasets 
 is to use random forests.
-:class:`ensemble.IsolationForest` consists in 'isolate' the observations 
+:class:`ensemble.IsolationForest` consists in 'isolating' the observations 
 by randomly selecting a feature and then randomly selecting a split value
 between the maximum and minimum values of the selected feature.
 

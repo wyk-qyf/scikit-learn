@@ -13,8 +13,7 @@ from sklearn.utils.testing import assert_array_equal
 from sklearn.utils.testing import assert_array_almost_equal
 from sklearn.utils.testing import assert_raises
 from sklearn.utils.testing import assert_warns
-from sklearn.utils.testing import assert_equal
-from sklearn.utils.testing import assert_true
+from sklearn.utils.testing import assert_greater
 from sklearn.utils.testing import ignore_warnings
 
 from sklearn.grid_search import GridSearchCV, ParameterGrid
@@ -132,16 +131,39 @@ def test_iforest_gridsearch():
     """Check that Isolation Forest can be grid-searched."""
     # Transform iris into a binary classification task
     X, y = iris.data, iris.target
-    y[y == 2] = 1
+    y[y==2] = 1
 
     # Grid search with scoring based on decision_function
-    parameters = {'n_estimators': (1, 2, 100)}
+    parameters = {'n_estimators': (1, 100)}
 
-    grid_search = GridSearchCV(IsolationForest(random_state=0,
-                                               max_samples=0.1),
+    GridSearchCV(IsolationForest(random_state=0,
+                                               max_samples=.9),
                                parameters,
                                scoring="roc_auc").fit(X, y)
-    best_score = grid_search.best_score_
-    best_params = grid_search.best_params_
-    assert_true(best_score > 0.7)
-    assert_equal(best_params['n_estimators'], 100)
+
+
+def test_iforest_performance():
+    """ Test Isolation Forest performs well"""
+    clf = IsolationForest()
+    rnd = check_random_state(2)
+
+    # Generate train data
+    X = 0.3 * rnd.randn(100, 2)
+    X_train = np.r_[X + 2, X - 2]
+
+    # Generate some regular novel observations
+    X = 0.3 * rnd.randn(20, 2)
+    X_test = np.r_[X + 2, X - 2]
+    # Generate some abnormal novel observations
+    X_outliers = rnd.uniform(low=-4, high=4, size=(20, 2))
+
+    # fit the model
+    clf = IsolationForest()
+    clf.fit(X_train)
+
+    # predict scores (the lower, the more normal):
+    y_pred_test = clf.predict(X_test)
+    y_pred_outliers = clf.predict(X_outliers)
+
+    # check that there is at most 6 errors (false positive or false negative):
+    assert_greater(np.sort(y_pred_outliers)[3], np.sort(y_pred_test)[-4])  
