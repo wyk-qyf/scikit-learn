@@ -13,6 +13,8 @@ from sklearn.utils.testing import assert_array_equal
 from sklearn.utils.testing import assert_array_almost_equal
 from sklearn.utils.testing import assert_raises
 from sklearn.utils.testing import assert_warns
+from sklearn.utils.testing import assert_equal
+from sklearn.utils.testing import assert_true
 from sklearn.utils.testing import assert_greater
 from sklearn.utils.testing import ignore_warnings
 
@@ -21,6 +23,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.cross_validation import train_test_split
 from sklearn.datasets import load_boston, load_iris
 from sklearn.utils import check_random_state
+from sklearn.metrics import roc_auc_score
 
 from scipy.sparse import csc_matrix, csr_matrix
 
@@ -72,16 +75,12 @@ def test_iforest_sparse():
         for params in grid:
             # Trained on sparse format
             sparse_classifier = IsolationForest(
-                random_state=1,
-                **params
-            ).fit(X_train_sparse)
+                random_state=1, **params).fit(X_train_sparse)
             sparse_results = sparse_classifier.predict(X_test_sparse)
 
             # Trained on dense format
             dense_results = IsolationForest(
-                random_state=1,
-                **params
-            ).fit(X_train).predict(X_test)
+                random_state=1, **params).fit(X_train).predict(X_test)
 
             assert_array_equal(sparse_results, dense_results)
             assert_array_equal(sparse_results, dense_results)
@@ -131,39 +130,39 @@ def test_iforest_gridsearch():
     """Check that Isolation Forest can be grid-searched."""
     # Transform iris into a binary classification task
     X, y = iris.data, iris.target
-    y[y==2] = 1
+    y[y == 2] = 1
 
     # Grid search with scoring based on decision_function
     parameters = {'n_estimators': (1, 100)}
 
-    GridSearchCV(IsolationForest(random_state=0,
-                                               max_samples=.9),
-                               parameters,
-                               scoring="roc_auc").fit(X, y)
+    gs = GridSearchCV(IsolationForest(random_state=42, max_samples=.9),
+                      parameters, scoring="roc_auc").fit(X, y)
+
+    best_score = gs.best_score_
+    best_params = gs.best_params_
+    assert_true(best_score > 0.8)
+    assert_equal(best_params['n_estimators'], 100)
 
 
 def test_iforest_performance():
-    """ Test Isolation Forest performs well"""
-    clf = IsolationForest()
-    rnd = check_random_state(2)
+    """Test Isolation Forest performs well"""
 
-    # Generate train data
-    X = 0.3 * rnd.randn(100, 2)
+    # Generate train/test data
+    rng = check_random_state(2)
+    X = 0.3 * rng.randn(120, 2)
     X_train = np.r_[X + 2, X - 2]
+    X_train = X[:100]
 
-    # Generate some regular novel observations
-    X = 0.3 * rnd.randn(20, 2)
-    X_test = np.r_[X + 2, X - 2]
     # Generate some abnormal novel observations
-    X_outliers = rnd.uniform(low=-4, high=4, size=(20, 2))
+    X_outliers = rng.uniform(low=-4, high=4, size=(20, 2))
+    X_test = np.r_[X[100:], X_outliers]
+    y_test = np.array([0] * 20 + [1] * 20)
 
     # fit the model
-    clf = IsolationForest()
-    clf.fit(X_train)
+    clf = IsolationForest(max_samples=100).fit(X_train)
 
-    # predict scores (the lower, the more normal):
-    y_pred_test = clf.predict(X_test)
-    y_pred_outliers = clf.predict(X_outliers)
+    # predict scores (the lower, the more normal)
+    y_pred = clf.predict(X_test)
 
-    # check that there is at most 6 errors (false positive or false negative):
-    assert_greater(np.sort(y_pred_outliers)[3], np.sort(y_pred_test)[-4])  
+    # check that there is at most 6 errors (false positive or false negative)
+    assert_greater(roc_auc_score(y_test, y_pred), 0.99)
