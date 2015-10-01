@@ -13,12 +13,10 @@ from sklearn.utils.testing import assert_array_equal
 from sklearn.utils.testing import assert_array_almost_equal
 from sklearn.utils.testing import assert_raises
 from sklearn.utils.testing import assert_warns
-from sklearn.utils.testing import assert_equal
-from sklearn.utils.testing import assert_true
 from sklearn.utils.testing import assert_greater
 from sklearn.utils.testing import ignore_warnings
 
-from sklearn.grid_search import GridSearchCV, ParameterGrid
+from sklearn.grid_search import ParameterGrid
 from sklearn.ensemble import IsolationForest
 from sklearn.cross_validation import train_test_split
 from sklearn.datasets import load_boston, load_iris
@@ -124,24 +122,6 @@ def test_iforest_parallel_regression():
 
     y3 = ensemble.predict(X_test)
     assert_array_almost_equal(y1, y3)
-
-
-def test_iforest_gridsearch():
-    """Check that Isolation Forest can be grid-searched."""
-    # Transform iris into a binary classification task
-    X, y = iris.data, iris.target
-    y[y == 2] = 1
-
-    # Grid search with scoring based on decision_function
-    parameters = {'n_estimators': (1, 100)}
-
-    gs = GridSearchCV(IsolationForest(random_state=42, max_samples=.9),
-                      parameters, scoring="roc_auc").fit(X, y)
-
-    best_score = gs.best_score_
-    best_params = gs.best_params_
-    assert_true(best_score > 0.8)
-    assert_equal(best_params['n_estimators'], 100)
 
 
 def test_iforest_performance():
