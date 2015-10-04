@@ -145,4 +145,4 @@ def test_iforest_performance():
     y_pred = clf.predict(X_test)
 
     # check that there is at most 6 errors (false positive or false negative)
-    assert_greater(roc_auc_score(y_test, y_pred), 0.99)
+    assert_greater(roc_auc_score(y_test, y_pred), 0.98)
