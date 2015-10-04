@@ -15,7 +15,7 @@ def k_distance(k, p, X):
     print '__k_distance querry:__'
     print 'k=', k
     print 'p=', p
-    print 'X=', X
+    print 'X.shape=', X.shape
     n_samples = X.shape[0]
     k = k if k < n_samples else n_samples
     print 'k moved to ', k
@@ -48,7 +48,7 @@ def reachability_distance(k, p, o, X):
     print '____reachability_distance querry with k=', k
     print 'p=',p
     print 'o=',o
-    print 'X=',X
+    print 'X.shape=',X.shape
     k_distance_value = k_distance(k, o, X)[0]
     return max([k_distance_value,  np.linalg.norm(p - o)])
 
@@ -75,19 +75,21 @@ def local_reachability_density(min_pts, p, X):
     """
     print '____________local_reach_dens querry with min_pts=', min_pts
     print 'p=', p
-    print 'X=', X
+    print 'X.shape=', X.shape
     (k_distance_value, neighbours_indices) = k_distance(min_pts, p, X)
     nb_neighbours = len(neighbours_indices)
     reach_dist_array = np.zeros(nb_neighbours)
 
+    cpt=-1
     for i in neighbours_indices:
+        cpt += 1
 ## # without function reachability_distance:
 ##        k_distance_value = k_distance(min_pts, X[i], X)[0]
 ##        reach_dist_array[i] max([k_distance_value,  np.linalg.norm(p - X[i])])
 
-        reach_dist_array[i] = reachability_distance(min_pts, p, X[i], X)
+        reach_dist_array[cpt] = reachability_distance(min_pts, p, X[i], X)
 
-    return nb_neighbours / sum(reach_dist_array)
+    return nb_neighbours / np.sum(reach_dist_array)
 
 
 def local_outlier_factor(min_pts, p, X):
@@ -115,7 +117,7 @@ def local_outlier_factor(min_pts, p, X):
     print '__________________________local_outlier_factor querry with'
     print 'min_pts=', min_pts
     print 'p=', p
-    print 'X=', X
+    print 'X.shape=', X.shape
     (k_distance_value, neighbours_indices) = k_distance(min_pts, p, X)
     p_lrd = local_reachability_density(min_pts, p, X)
 
@@ -123,13 +125,15 @@ def local_outlier_factor(min_pts, p, X):
     print 'n_neighbours=', n_neighbours
     lrd_ratios_array = np.zeros(n_neighbours)
 
+    cpt = -1
     for i in neighbours_indices:
-        ind_without_i = np.ones(len(neighbours_indices), dtype='bool')
+        cpt += 1
+        ind_without_i = np.ones(X.shape[0], dtype='bool')
         ind_without_i[i] = False
         i_lrd = local_reachability_density(min_pts, X[i], X[ind_without_i])
-        lrd_ratios_array[i] = i_lrd / p_lrd
+        lrd_ratios_array[cpt] = i_lrd / p_lrd
 
-    return sum(lrd_ratios_array) / n_neighbours
+    return np.sum(lrd_ratios_array) / n_neighbours
 
 
 class LOF():
@@ -220,3 +224,27 @@ class LOF():
             lof_scores = np.array([local_outlier_factor(min_pts=self.n_neighbors, p=X[i], X=self.training_samples_) 
                                    for i in range(n_samples)])
         return lof_scores
+
+    def decision_function(self, X=None, n_neighbors=None):
+        """Opposite of the LOF score of X (as bigger is better).
+        The (local) outlier factor (LOF) of a instance p captures its supposed `degree of abnormality'.
+        It is the average of the ratio of the local reachability density of p and those of p's min_pts-NN.
+
+        Parameters
+        ----------
+
+        X : array-like, last dimension same as that of fit data, optional (default=None)
+        The querry sample or samples to compute the LOF wrt to the training samples.
+        If not provided, LOF of each training sample are returned. In this case, 
+        the query point is not considered its own neighbor.
+        
+        n_neighbors : int, optional
+        Number of neighbors to use for computing LOF (default is the value passed to
+        the constructor).
+    
+        Returns
+        -------
+        lof_scores : array of shape (n_samples,)
+        The LOF score of each input samples. The lower, the more normal.
+        """
+        return -self.predict(X, n_neighbors)
