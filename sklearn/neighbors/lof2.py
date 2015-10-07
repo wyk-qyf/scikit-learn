@@ -19,25 +19,28 @@ def k_distance(k, p, X):
     n_samples = X.shape[0]
     k = k if k < n_samples else n_samples
     # print 'k moved to ', k
-    if k == n_samples:
+    if True: #k == n_samples:
         neigh = NearestNeighbors(n_neighbors=k, algorithm='auto')
         neigh.fit(X) 
         distances, neighbours_indices =  neigh.kneighbors(p)
         # print 'neighbours_indices=', neighbours_indices
         neighbours_indices = list(neighbours_indices[0])
         k_dist = distances[0, k-1]
-    else:
-        # compute one additionnal NN to see if the distance really increases
-        neigh = NearestNeighbors(n_neighbors=k+1, algorithm='auto')  
-        neigh.fit(X) 
-        distances, neighbours_indices =  neigh.kneighbors(p)
-        neighbours_indices = list(neighbours_indices[0])
-        k_dist = distances[0, k-1]
-        if k_dist == distances[0, k]:  # then the number of k-nn is larger than k
-            for i in range(n_samples):
-                if i not in neighbours_indices:
-                    if np.linalg.norm(X[i].reshape(1,-1) - p) == k_dist:
-                        neighbours_indices.append(i)
+    # else:
+    #     # compute one additionnal NN to see if the distance really increases
+    #     neigh = NearestNeighbors(n_neighbors=k+1, algorithm='auto')  
+    #     neigh.fit(X) 
+    #     distances, neighbours_indices =  neigh.kneighbors(p)
+    #     neighbours_indices = list(neighbours_indices[0])
+    #     k_dist = distances[0, k-1]
+    #     if k_dist == distances[0, k]:  # then the number of k-nn is larger than k
+    #         print 'LOF2: k_dist=', k_dist
+    #         print 'LOF2: distances[0,k]', distances[0,k]
+    #         for i in range(n_samples):
+    #             if i not in neighbours_indices:
+    #                 if np.linalg.norm(X[i].reshape(1,-1) - p) == k_dist:
+    #                     neighbours_indices.append(i)
+#    print 'LOF2 k_distance returns', k_dist, neighbours_indices
     return k_dist, neighbours_indices
 
 
@@ -83,12 +86,13 @@ def local_reachability_density(min_pts, p, X):
     cpt=-1
     for i in neighbours_indices:
         cpt += 1
-## # without function reachability_distance:
-##        k_distance_value = k_distance(min_pts, X[i], X)[0]
-##        reach_dist_array[i] max([k_distance_value,  np.linalg.norm(p - X[i])])
+        # without function reachability_distance:
+        ind_without_i = np.ones(X.shape[0], dtype='bool')
+        ind_without_i[i] = False
+        k_distance_value = k_distance(min_pts, X[i], X[ind_without_i])[0]
+        reach_dist_array[cpt] = max([k_distance_value,  np.linalg.norm(p - X[i])])
 
-        reach_dist_array[cpt] = reachability_distance(min_pts, p, X[i].reshape(1,-1), X)
-
+#    print ' LOF2: local_reachability_density returns:', nb_neighbours / np.sum(reach_dist_array)
     return nb_neighbours / np.sum(reach_dist_array)
 
 
@@ -119,7 +123,7 @@ def local_outlier_factor(min_pts, p, X):
     # print 'p=', p
     # print 'X.shape=', X.shape
     (k_distance_value, neighbours_indices) = k_distance(min_pts, p, X)
-    p_lrd = local_reachability_density(min_pts, p, X)
+    p_lrd = local_reachability_density(min_pts, p, X) # remove p from X?
 
     n_neighbours = len(neighbours_indices)  # may be larger than min_pts
     # print 'n_neighbours=', n_neighbours
@@ -132,7 +136,7 @@ def local_outlier_factor(min_pts, p, X):
         ind_without_i[i] = False
         i_lrd = local_reachability_density(min_pts, X[i].reshape(1,-1), X[ind_without_i])
         lrd_ratios_array[cpt] = i_lrd / p_lrd
-
+#    print 'LOF2: local_outlier_factor return:', np.sum(lrd_ratios_array) / n_neighbours
     return np.sum(lrd_ratios_array) / n_neighbours
 
 
