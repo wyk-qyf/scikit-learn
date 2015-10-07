@@ -10,7 +10,7 @@ print(__doc__)
 
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.neighbors import LOF
+from sklearn.neighbors import LOF, LOF2
 from sklearn.metrics import roc_curve, auc
 from sklearn.datasets import load_kddcup99, fetch_covtype, fetch_mldata
 from sklearn.preprocessing import LabelBinarizer
@@ -88,7 +88,7 @@ for dat in datasets:
     y_test = y[n_samples_train:]
 
     print('LOF processing...')
-    model = LOF(n_neighbors=2)
+    model = LOF2(n_neighbors=2)
     model.fit(X_train)
     scoring = model.predict(X_test)  # the lower, the more normal
     print 'scoring=', scoring
