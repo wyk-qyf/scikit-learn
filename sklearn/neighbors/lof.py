@@ -1,142 +1,137 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from .unsupervised import NearestNeighbors
-from ..utils import check_array
 
+from .base import NeighborsBase
+from .base import KNeighborsMixin
+from .base import UnsupervisedMixin
+
+from ..metrics import pairwise_distances
+
+from ..utils import check_array
+from ..utils import _get_n_jobs
 
 __all__ = ["LOF"]
 
-def k_distance(k, p, X):
-    """ 
-    Compute the k_distance and the neighbourhood of p 
-    The samples X should not contain p, otherwise p is considered in its own neighbourhood.
-    """
-    # print '__k_distance querry:__'
-    # print 'k=', k
-    # print 'p=', p
-    # print 'X.shape=', X.shape
-    n_samples = X.shape[0]
-    k = k if k < n_samples else n_samples
-    # print 'k moved to ', k
-    if k == n_samples:
-        neigh = NearestNeighbors(n_neighbors=k, algorithm='auto')
-        neigh.fit(X) 
-        distances, neighbours_indices =  neigh.kneighbors(p)
-        # print 'neighbours_indices=', neighbours_indices
-        neighbours_indices = list(neighbours_indices[0])
-        k_dist = distances[0, k-1]
-    else:
-        # compute one additionnal NN to see if the distance really increases
-        neigh = NearestNeighbors(n_neighbors=k+1, algorithm='auto')  
-        neigh.fit(X) 
-        distances, neighbours_indices =  neigh.kneighbors(p)
-        neighbours_indices = list(neighbours_indices[0])
-        k_dist = distances[0, k-1]
-        if k_dist == distances[0, k]:  # then the number of k-nn is larger than k
-            for i in range(n_samples):
-                if i not in neighbours_indices:
-                    if np.linalg.norm(X[i].reshape(1,-1) - p) == k_dist:
-                        neighbours_indices.append(i)
-    return k_dist, neighbours_indices
+
+class LOFMixin(object):
+    """Mixin for Local-Outlier-Factor computation"""
+
+    def k_distance(self, X=None):
+        """ 
+        Compute the k_distance and the neighborhood of querry samples X wrt self._fit_X 
+        If X=None, neighbors of each sample self._fit_X are returned.
+        In this case, the query point is not considered its own neighbor.
+        """
+        # print '__k_distance querry:__'
+        # print 'k=', k
+        # print 'p=', X
+        # print 'X.shape=', X.shape
+        distances, neighbors_indices =  self.kneighbors(X=X, n_neighbors=self.n_neighbors)
+        neighbors_indices = neighbors_indices
+        k_dist = distances[:, self.n_neighbors-1]
+
+        return k_dist, neighbors_indices
 
 
+    def local_reachability_density(self, p):
+        """The local reachability density (LRD) of p is the inverse of the average reachability
+        distance based on the self.n_neighbors-nearest neighbors of instance.
 
-def reachability_distance(k, p, o, X):
-    """Compute the reachability distance of p with respect to o.
-    """
-    # print '____reachability_distance querry with k=', k
-    # print 'p=',p
-    # print 'o=',o
-    # print 'X.shape=',X.shape
-    k_distance_value = k_distance(k, o, X)[0]
-    return max([k_distance_value,  np.linalg.norm(p - o)])
-
-
-def local_reachability_density(min_pts, p, X):
-    """The local reachability density (LRD) of p is the inverse of the average reachability
-    distance based on the min_pts-nearest neighbors of instance.
-
-    Parameters
-    ----------
-    min_pts : int
-    Number of instances to consider for computing LRD value
+        Parameters
+        ----------
     
-    p : array-like
-    The point where to compute the LRD.
-
-    X : array-like of shape (n_samples, n_features)
-    The input samples.
+        p : array-like of shape (n_samples, n_features)
+        The samples to compute the LRD w.r.t. self._fit_X
+        If None, compute the LRD of self._fit_X w.r.t. to itself. 
+        (In this case samples are not considered in their own neighbourhood)
     
-    Returns
-    -------
-    local reachability density : float
-    The LRD of p. 
-    """
-    # print '____________local_reach_dens querry with min_pts=', min_pts
-    # print 'p=', p
-    # print 'X.shape=', X.shape
-    (k_distance_value, neighbours_indices) = k_distance(min_pts, p, X)
-    nb_neighbours = len(neighbours_indices)
-    reach_dist_array = np.zeros(nb_neighbours)
+        Returns
+        -------
+        local reachability density : float
+        The LRD of p. 
+        """
+        # print '____________local_reach_dens querry with min_pts=', min_pts
+        # print 'p=', p
+        # print 'X.shape=', X.shape
+        ### (k_distance_value, neighbors_indices) = k_distance(min_pts, p, X)  
+        p_ = self._fit_X if p is None else p
+ 
+        neighbors_indices = self.k_distance(p)[1]
 
-    cpt=-1
-    for i in neighbours_indices:
-        cpt += 1
-## # without function reachability_distance:
-##        k_distance_value = k_distance(min_pts, X[i], X)[0]
-##        reach_dist_array[i] max([k_distance_value,  np.linalg.norm(p - X[i])])
+        n_jobs = _get_n_jobs(self.n_jobs)
+        if self.effective_metric_ == 'euclidean':
+            dist = pairwise_distances(p_, self._fit_X, 'euclidean',
+                                      n_jobs=n_jobs, squared=True)
+        else:
+            dist = pairwise_distances(p_, self._fit_X, 
+                                      self.effective_metric_, 
+                                      n_jobs=n_jobs, 
+                                      **self.effective_metric_params_)
 
-        reach_dist_array[cpt] = reachability_distance(min_pts, p, X[i].reshape(1,-1), X)
 
-    return nb_neighbours / np.sum(reach_dist_array)
+        # dist = pairwise_distances(p, self._fit_X)
+
+        reach_dist_array = np.zeros((p_.shape[0], self.n_neighbors))
+
+        k_distance_value_fit_X = self.k_distance(X=None)[0]  ### XXX no need to compute everything, just X[i, :] with i in neighbors_indices
+ 
+        # k_distance() uses X=self._fit_x
+
+        for j in range(p_.shape[0]):
+            cpt = -1
+            for i in neighbors_indices[j, :]:
+                cpt += 1
+                reach_dist_array[j, cpt] = np.max([k_distance_value_fit_X[i],  dist[j, i]])
+        
+        return self.n_neighbors / np.sum(reach_dist_array, axis=1)
 
 
-def local_outlier_factor(min_pts, p, X):
-    """ The (local) outlier factor (LOF) of instance captures its supposed `degree of abnormality'.
-    It is the average of the ratio of the local reachability density of p and those of p's min_pts-NN.
+    def local_outlier_factor(self, p):
+        """ The (local) outlier factor (LOF) of instance captures its supposed `degree of abnormality'.
+        It is the average of the ratio of the local reachability density of p and those of p's self.n_neighbors-NN.
 
-    Parameters
-    ----------
-    min_pts : int
-    Number of neighbours to consider for computing LOF value
+        Parameters
+        ----------
+
+        p : array-like of shape (n_samples, n_features)
+        The points to compute the LOF w.r.t. self._fit_X
+        If None, compute LOF of self._fit_X w.r.t. to itself. 
+        (In this case samples are not considered in their own neighbourhood)
+
+        Returns
+        -------
+        Local Outlier Factor : array-like of shape (n_samples,)
+        The LOF of p. The lower, the more normal.
     
-    p : array-like
-    The point to compute the LOF.
+        """
+        # print '__________________________local_outlier_factor querry with'
+        # print 'min_pts=', min_pts
+        # print 'p=', p
+        # print 'X.shape=', X.shape
+        p_ = self._fit_X if p is None else p
 
-    X : array-like of shape (n_samples, n_features)
-    The input samples. 
-    Sould not contain p, otherwise p is considered in its own neighbourhood.
-    
-    Returns
-    -------
-    Local Outlier Factor : float
-    The LOF of p. The lower, the more normal.
-    
-    """
-    # print '__________________________local_outlier_factor querry with'
-    # print 'min_pts=', min_pts
-    # print 'p=', p
-    # print 'X.shape=', X.shape
-    (k_distance_value, neighbours_indices) = k_distance(min_pts, p, X)
-    p_lrd = local_reachability_density(min_pts, p, X)
+        neighbors_indices = self.k_distance(p)[1]
 
-    n_neighbours = len(neighbours_indices)  # may be larger than min_pts
-    # print 'n_neighbours=', n_neighbours
-    lrd_ratios_array = np.zeros(n_neighbours)
+        ##### Compute the local_reachibility_density of samples p:
+        p_lrd = self.local_reachability_density(p)
 
-    cpt = -1
-    for i in neighbours_indices:
-        cpt += 1
-        ind_without_i = np.ones(X.shape[0], dtype='bool')
-        ind_without_i[i] = False
-        i_lrd = local_reachability_density(min_pts, X[i].reshape(1,-1), X[ind_without_i])
-        lrd_ratios_array[cpt] = i_lrd / p_lrd
+        # print 'n_neighbors=', n_neighbors
+        lrd_ratios_array = np.zeros((p_.shape[0], self.n_neighbors))
 
-    return np.sum(lrd_ratios_array) / n_neighbours
+        lrd = self.local_reachability_density(p=None)
+
+        for j in range(p_.shape[0]):
+            cpt = -1
+            for i in neighbors_indices[j, :]:
+                cpt += 1
+                i_lrd = lrd[i]
+                lrd_ratios_array[j, cpt] = i_lrd / p_lrd[j]
+
+        return np.sum(lrd_ratios_array, axis=1) / self.n_neighbors
 
 
-class LOF():
+class LOF(NeighborsBase, KNeighborsMixin, LOFMixin, UnsupervisedMixin):
     """Unsupervised Outlier Detection.
 
     Return an anomaly score of each sample: its Local Outlier Factor.
@@ -144,56 +139,91 @@ class LOF():
 
     Parameters
     ----------
+    n_neighbors : int, optional (default = 5)
+        Number of neighbors to use by default for :meth:`k_neighbors` queries.
 
-    n_neighbors : int, optional (default=5)
-        Number of neighbors to use for computing LOF (default is the value passed to
-        the constructor).
+    algorithm : {'auto', 'ball_tree', 'kd_tree', 'brute'}, optional
+        Algorithm used to compute the nearest neighbors:
 
-    random_state : int, RandomState instance or None, optional (default=None)
-        If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
+        - 'ball_tree' will use :class:`BallTree`
+        - 'kd_tree' will use :class:`KDtree`
+        - 'brute' will use a brute-force search.
+        - 'auto' will attempt to decide the most appropriate algorithm
+          based on the values passed to :meth:`fit` method.
+
+        Note: fitting on sparse input will override the setting of
+        this parameter, using brute force.
+
+    leaf_size : int, optional (default = 30)
+        Leaf size passed to BallTree or KDTree.  This can affect the
+        speed of the construction and query, as well as the memory
+        required to store the tree.  The optimal value depends on the
+        nature of the problem.
+
+    p: integer, optional (default = 2)
+        Parameter for the Minkowski metric from
+        sklearn.metrics.pairwise.pairwise_distances. When p = 1, this is
+        equivalent to using manhattan_distance (l1), and euclidean_distance
+        (l2) for p = 2. For arbitrary p, minkowski_distance (l_p) is used.
+
+    metric : string or callable, default 'minkowski'
+        metric to use for distance computation. Any metric from scikit-learn
+        or scipy.spatial.distance can be used.
+
+        If metric is a callable function, it is called on each
+        pair of instances (rows) and the resulting value recorded. The callable
+        should take two arrays as input and return one value indicating the
+        distance between them. This works for Scipy's metrics, but is less
+        efficient than passing the metric name as a string.
+
+        Distance matrices are not supported.
+
+        Valid values for metric are:
+
+        - from scikit-learn: ['cityblock', 'cosine', 'euclidean', 'l1', 'l2',
+          'manhattan']
+
+        - from scipy.spatial.distance: ['braycurtis', 'canberra', 'chebyshev',
+          'correlation', 'dice', 'hamming', 'jaccard', 'kulsinski',
+          'mahalanobis', 'matching', 'minkowski', 'rogerstanimoto',
+          'russellrao', 'seuclidean', 'sokalmichener', 'sokalsneath',
+          'sqeuclidean', 'yule']
+
+        See the documentation for scipy.spatial.distance for details on these
+        metrics.
+
+    metric_params : dict, optional (default = None)
+        Additional keyword arguments for the metric function.
+
+    n_jobs : int, optional (default = 1)
+        The number of parallel jobs to run for neighbors search.
+        If ``-1``, then the number of jobs is set to the number of CPU cores.
+        Affects only :meth:`k_neighbors` and :meth:`kneighbors_graph` methods.
+
 
     Attributes
     ----------
 
     """
-    def __init__(self, n_neighbors=5, random_state=None):
+    def __init__(self, n_neighbors=5, algorithm='auto', leaf_size=30,
+                 metric='minkowski', p=2, metric_params=None, n_jobs=1, **kwargs):
+        self._init_params(n_neighbors=n_neighbors,
+                          algorithm=algorithm,
+                          leaf_size=leaf_size, metric=metric, p=p,
+                          metric_params=metric_params, n_jobs=n_jobs, **kwargs)
 
-        self.n_neighbors = n_neighbors
-        self.random_state = random_state
-
-    def fit(self, X):
-        """
-        Parameters
-        ----------
-        X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            Set of samples, where n_samples is the number of samples and
-            n_features is the number of features.
-
-        Returns
-        -------
-        self : object
-            Returns self.
-
-        """
-        X = check_array(X)
-        self.training_samples_ = X
-        # print 'in fit class, self.n_neighbors=', self.n_neighbors
-        return self
 
     def predict(self, X=None, n_neighbors=None):
         """Predict LOF score of X.
         The (local) outlier factor (LOF) of a instance p captures its supposed `degree of abnormality'.
-        It is the average of the ratio of the local reachability density of p and those of p's min_pts-NN.
+        It is the average of the ratio of the local reachability density of p and those of p's self.n_neighbors-NN.
 
         Parameters
         ----------
 
         X : array-like, last dimension same as that of fit data, optional (default=None)
         The querry sample or samples to compute the LOF wrt to the training samples.
-        If not provided, LOF of each training sample are returned. In this case, 
+        If not provided, LOF of each training sample is returned. In this case, 
         the query point is not considered its own neighbor.
 
         n_neighbors : int, optional
@@ -208,22 +238,8 @@ class LOF():
         if n_neighbors != None:
             self.n_neighbors = n_neighbors
 
-        if X == None:
-            X = self.training_samples_
-            n_samples = X.shape[0]
-            lof_scores = np.zeros(n_samples)
-            for i in range(n_samples):
-                ind_without_i = np.ones(n_samples, dtype='bool')
-                ind_without_i[i] = False
-                lof_scores[i] = local_outlier_factor(min_pts=self.n_neighbors,
-                                                     p=X[i].reshape(1,-1),
-                                                     X=X[ind_without_i]) 
-        else:
-            X = check_array(X)
-            n_samples = X.shape[0]
-            lof_scores = np.array([local_outlier_factor(min_pts=self.n_neighbors, p=X[i].reshape(1,-1), X=self.training_samples_) 
-                                   for i in range(n_samples)])
-        return lof_scores
+        return self.local_outlier_factor(X)
+
 
     def decision_function(self, X=None, n_neighbors=None):
         """Opposite of the LOF score of X (as bigger is better).

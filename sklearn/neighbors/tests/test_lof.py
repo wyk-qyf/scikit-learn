@@ -17,7 +17,7 @@ def test_lof():
     clf = neighbors.LOF()
     clf.fit(X)
     pred = clf.predict()
-    assert_array_equal(clf.training_samples_, X)
+    assert_array_equal(clf._fit_X, X)
 
     # assert detect outliers:
     assert_greater(np.min(pred[-2:]), np.max(pred[:-2]))
