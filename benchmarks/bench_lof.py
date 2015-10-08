@@ -16,7 +16,7 @@ from sklearn.datasets import load_kddcup99, fetch_covtype, fetch_mldata
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.utils import shuffle as sh
 
-np.random.seed(1)
+np.random.seed(7)
 
 
 datasets = ['smtp'] #, 'SA', 'SF', 'shuttle', 'forestcover']
@@ -75,8 +75,6 @@ for dat in datasets:
     if dat == 'http' or dat == 'smtp':
         y = (y != 'normal.').astype(int)
 
-    X, y = X[:5000], y[:5000]
-
     n_samples, n_features = np.shape(X)
     n_samples_train = n_samples // 2
     n_samples_test = n_samples - n_samples_train
@@ -88,7 +86,7 @@ for dat in datasets:
     y_test = y[n_samples_train:]
 
     print('LOF processing...')
-    model = LOF(metric='euclidean', algorithm='brute', n_neighbors=2)
+    model = LOF(metric='euclidean', algorithm='brute', n_neighbors=30)
 #    model = LOF2(n_neighbors=2)
     model.fit(X_train)
     scoring = model.predict(X_test)  # the lower, the more normal

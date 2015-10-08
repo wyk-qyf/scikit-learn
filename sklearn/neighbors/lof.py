@@ -26,7 +26,7 @@ class LOFMixin(object):
         distances, neighbors_indices =  self.kneighbors(X=X, n_neighbors=self.n_neighbors)
         neighbors_indices = neighbors_indices
         k_dist = distances[:, self.n_neighbors-1]
-        print 'LOF k_distance returns:', k_dist, neighbors_indices
+        # print 'LOF k_distance returns:', k_dist, neighbors_indices
         return k_dist, neighbors_indices
 
 
@@ -47,6 +47,8 @@ class LOFMixin(object):
         local reachability density : float
         The LRD of p. 
         """
+        
+
         p_ = self._fit_X if p is None else p
         neighbors_indices = self.k_distance(p)[1]
         n_jobs = _get_n_jobs(self.n_jobs)
@@ -75,8 +77,7 @@ class LOFMixin(object):
             for i in neighbors_indices[j, :]:
                 cpt += 1
                 reach_dist_array[j, cpt] = np.max([k_distance_value_fit_X[i],  dist[j, i]])
-        print 'LOF: reach_dist_array', reach_dist_array
-        print 'LOF local_reachability_density returns:', self.n_neighbors / np.sum(reach_dist_array, axis=1)
+        # print 'LOF local_reachability_density returns:', self.n_neighbors / np.sum(reach_dist_array, axis=1)
         return self.n_neighbors / np.sum(reach_dist_array, axis=1)
 
 
@@ -99,7 +100,6 @@ class LOFMixin(object):
     
         """
         p_ = self._fit_X if p is None else p
-
         neighbors_indices = self.k_distance(p)[1]
     
         ##### Compute the local_reachibility_density of samples p:
@@ -114,7 +114,7 @@ class LOFMixin(object):
                 cpt += 1
                 i_lrd = lrd[i]
                 lrd_ratios_array[j, cpt] = i_lrd / p_lrd[j]
-        print 'LOF local_outlier_factor returns:', np.sum(lrd_ratios_array, axis=1) / self.n_neighbors
+#        print 'LOF local_outlier_factor returns:', np.sum(lrd_ratios_array, axis=1) / self.n_neighbors
         return np.sum(lrd_ratios_array, axis=1) / self.n_neighbors
 
 
