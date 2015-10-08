@@ -23,14 +23,10 @@ class LOFMixin(object):
         If X=None, neighbors of each sample self._fit_X are returned.
         In this case, the query point is not considered its own neighbor.
         """
-        # print '__k_distance querry:__'
-        # print 'k=', k
-        # print 'p=', X
-        # print 'X.shape=', X.shape
         distances, neighbors_indices =  self.kneighbors(X=X, n_neighbors=self.n_neighbors)
         neighbors_indices = neighbors_indices
         k_dist = distances[:, self.n_neighbors-1]
-#        print 'LOF k_distance returns:', k_dist, neighbors_indices
+        print 'LOF k_distance returns:', k_dist, neighbors_indices
         return k_dist, neighbors_indices
 
 
@@ -51,19 +47,13 @@ class LOFMixin(object):
         local reachability density : float
         The LRD of p. 
         """
-        # print '____________local_reach_dens querry with min_pts=', min_pts
-        # print 'p=', p
-        # print 'X.shape=', X.shape
         p_ = self._fit_X if p is None else p
- 
         neighbors_indices = self.k_distance(p)[1]
-
         n_jobs = _get_n_jobs(self.n_jobs)
         dist = pairwise_distances(p_, self._fit_X, 
                                   self.effective_metric_, 
                                   n_jobs=n_jobs, 
                                   **self.effective_metric_params_)
-
 
         # dist = pairwise_distances(p, self._fit_X)
 
@@ -71,7 +61,7 @@ class LOFMixin(object):
 
         k_distance_value_fit_X = self.k_distance(X=None)[0]    # k_distance() uses X=self._fit_x
         ### XXX to be optimized: no need to compute everything, just X[i] with i in neighbors_indices
-        ### In case p is not None, 2 possibilities: 
+        ### In case p is not None, 2 possibilities:
         ### Consider or not the new value p[m] to compute the k_distance 
         ###      (and thus the local_reachability_density) of samples self._fit_X
         ### -Here we do not consider it. However, if p[m] is one of the training samples X:=self._fit_X,
@@ -85,7 +75,8 @@ class LOFMixin(object):
             for i in neighbors_indices[j, :]:
                 cpt += 1
                 reach_dist_array[j, cpt] = np.max([k_distance_value_fit_X[i],  dist[j, i]])
-#        print 'LOF local_reachability_density returns:', self.n_neighbors / np.sum(reach_dist_array, axis=1)
+        print 'LOF: reach_dist_array', reach_dist_array
+        print 'LOF local_reachability_density returns:', self.n_neighbors / np.sum(reach_dist_array, axis=1)
         return self.n_neighbors / np.sum(reach_dist_array, axis=1)
 
 
@@ -107,17 +98,12 @@ class LOFMixin(object):
         The LOF of p. The lower, the more normal.
     
         """
-        # print '__________________________local_outlier_factor querry with'
-        # print 'min_pts=', min_pts
-        # print 'p=', p
-        # print 'X.shape=', X.shape
         p_ = self._fit_X if p is None else p
 
         neighbors_indices = self.k_distance(p)[1]
     
         ##### Compute the local_reachibility_density of samples p:
         p_lrd = self.local_reachability_density(p)
-        # print 'n_neighbors=', n_neighbors
         lrd_ratios_array = np.zeros((p_.shape[0], self.n_neighbors))
 
         lrd = self.local_reachability_density(p=None)
@@ -128,7 +114,7 @@ class LOFMixin(object):
                 cpt += 1
                 i_lrd = lrd[i]
                 lrd_ratios_array[j, cpt] = i_lrd / p_lrd[j]
-#        print 'LOF local_outlier_factor returns:', np.sum(lrd_ratios_array, axis=1) / self.n_neighbors
+        print 'LOF local_outlier_factor returns:', np.sum(lrd_ratios_array, axis=1) / self.n_neighbors
         return np.sum(lrd_ratios_array, axis=1) / self.n_neighbors
 
 
@@ -236,7 +222,8 @@ class LOF(NeighborsBase, KNeighborsMixin, LOFMixin, UnsupervisedMixin):
         lof_scores : array of shape (n_samples,)
         The LOF score of each input samples. The lower, the more normal.
         """
-        X = check_array(X, accept_sparse='csr')
+        if X is not None:
+            X = check_array(X, accept_sparse='csr')
         
         if n_neighbors != None:
             self.n_neighbors = n_neighbors
