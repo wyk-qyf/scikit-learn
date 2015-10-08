@@ -88,7 +88,8 @@ for dat in datasets:
     y_test = y[n_samples_train:]
 
     print('LOF processing...')
-    model = LOF2(n_neighbors=2)
+    model = LOF(metric='euclidean', algorithm='brute', n_neighbors=2)
+#    model = LOF2(n_neighbors=2)
     model.fit(X_train)
     scoring = model.predict(X_test)  # the lower, the more normal
     print 'scoring=', scoring
