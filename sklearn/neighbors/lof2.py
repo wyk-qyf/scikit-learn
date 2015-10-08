@@ -7,24 +7,25 @@ from ..utils import check_array
 
 __all__ = ["LOF2"]
 
-def k_distance(k, p, X):
+def k_distance(k, p, X, same_fit):
     """ 
     Compute the k_distance and the neighbourhood of p 
     The samples X should not contain p, otherwise p is considered in its own neighbourhood.
     """
-    # print '__k_distance querry:__'
-    # print 'k=', k
-    # print 'p=', p
-    # print 'X.shape=', X.shape
     n_samples = X.shape[0]
+    if same_fit is not None:
+        ind_without_i = np.ones(n_samples, dtype='bool')
+        ind_without_i[same_fit] = False
+        X = X[ind_without_i]
     k = k if k < n_samples else n_samples
-    # print 'k moved to ', k
     if True: #k == n_samples:
         neigh = NearestNeighbors(n_neighbors=k, algorithm='auto')
         neigh.fit(X) 
         distances, neighbours_indices =  neigh.kneighbors(p)
-        # print 'neighbours_indices=', neighbours_indices
         neighbours_indices = list(neighbours_indices[0])
+        if same_fit is not None:
+            for j in range(same_fit, k):
+                neighbours_indices[j] += 1 
         k_dist = distances[0, k-1]
     # else:
     #     # compute one additionnal NN to see if the distance really increases
@@ -40,7 +41,6 @@ def k_distance(k, p, X):
     #             if i not in neighbours_indices:
     #                 if np.linalg.norm(X[i].reshape(1,-1) - p) == k_dist:
     #                     neighbours_indices.append(i)
-#    print 'LOF2 k_distance returns', k_dist, neighbours_indices
     return k_dist, neighbours_indices
 
 
@@ -48,15 +48,11 @@ def k_distance(k, p, X):
 def reachability_distance(k, p, o, X):
     """Compute the reachability distance of p with respect to o.
     """
-    # print '____reachability_distance querry with k=', k
-    # print 'p=',p
-    # print 'o=',o
-    # print 'X.shape=',X.shape
     k_distance_value = k_distance(k, o, X)[0]
     return max([k_distance_value,  np.linalg.norm(p - o)])
 
 
-def local_reachability_density(min_pts, p, X):
+def local_reachability_density(min_pts, p, X, same_fit):
     """The local reachability density (LRD) of p is the inverse of the average reachability
     distance based on the min_pts-nearest neighbors of instance.
 
@@ -76,10 +72,7 @@ def local_reachability_density(min_pts, p, X):
     local reachability density : float
     The LRD of p. 
     """
-    # print '____________local_reach_dens querry with min_pts=', min_pts
-    # print 'p=', p
-    # print 'X.shape=', X.shape
-    (k_distance_value, neighbours_indices) = k_distance(min_pts, p, X)
+    (k_distance_value, neighbours_indices) = k_distance(min_pts, p, X, same_fit)
     nb_neighbours = len(neighbours_indices)
     reach_dist_array = np.zeros(nb_neighbours)
 
@@ -89,14 +82,12 @@ def local_reachability_density(min_pts, p, X):
         # without function reachability_distance:
         ind_without_i = np.ones(X.shape[0], dtype='bool')
         ind_without_i[i] = False
-        k_distance_value = k_distance(min_pts, X[i], X[ind_without_i])[0]
+        k_distance_value = k_distance(min_pts, X[i].reshape(1,-1), X[ind_without_i], same_fit=None)[0]
         reach_dist_array[cpt] = max([k_distance_value,  np.linalg.norm(p - X[i])])
-
-#    print ' LOF2: local_reachability_density returns:', nb_neighbours / np.sum(reach_dist_array)
     return nb_neighbours / np.sum(reach_dist_array)
 
 
-def local_outlier_factor(min_pts, p, X):
+def local_outlier_factor(min_pts, p, X, same_fit):
     """ The (local) outlier factor (LOF) of instance captures its supposed `degree of abnormality'.
     It is the average of the ratio of the local reachability density of p and those of p's min_pts-NN.
 
@@ -118,25 +109,17 @@ def local_outlier_factor(min_pts, p, X):
     The LOF of p. The lower, the more normal.
     
     """
-    # print '__________________________local_outlier_factor querry with'
-    # print 'min_pts=', min_pts
-    # print 'p=', p
-    # print 'X.shape=', X.shape
-    (k_distance_value, neighbours_indices) = k_distance(min_pts, p, X)
-    p_lrd = local_reachability_density(min_pts, p, X) # remove p from X?
+    (k_distance_value, neighbours_indices) = k_distance(min_pts, p, X, same_fit)
+    p_lrd = local_reachability_density(min_pts, p, X, same_fit) # remove p from X?
 
     n_neighbours = len(neighbours_indices)  # may be larger than min_pts
-    # print 'n_neighbours=', n_neighbours
     lrd_ratios_array = np.zeros(n_neighbours)
 
     cpt = -1
     for i in neighbours_indices:
         cpt += 1
-        ind_without_i = np.ones(X.shape[0], dtype='bool')
-        ind_without_i[i] = False
-        i_lrd = local_reachability_density(min_pts, X[i].reshape(1,-1), X[ind_without_i])
+        i_lrd = local_reachability_density(min_pts, X[i].reshape(1,-1), X, same_fit=i)
         lrd_ratios_array[cpt] = i_lrd / p_lrd
-#    print 'LOF2: local_outlier_factor return:', np.sum(lrd_ratios_array) / n_neighbours
     return np.sum(lrd_ratios_array) / n_neighbours
 
 
@@ -184,7 +167,6 @@ class LOF2():
         """
         X = check_array(X)
         self.training_samples_ = X
-        # print 'in fit class, self.n_neighbors=', self.n_neighbors
         return self
 
     def predict(self, X=None, n_neighbors=None):
@@ -217,15 +199,16 @@ class LOF2():
             n_samples = X.shape[0]
             lof_scores = np.zeros(n_samples)
             for i in range(n_samples):
-                ind_without_i = np.ones(n_samples, dtype='bool')
-                ind_without_i[i] = False
+                same_fit = i
+                # ind_without_i = np.ones(n_samples, dtype='bool')
+                # ind_without_i[i] = False
                 lof_scores[i] = local_outlier_factor(min_pts=self.n_neighbors,
                                                      p=X[i].reshape(1,-1),
-                                                     X=X[ind_without_i]) 
+                                                     X=X, same_fit=i) 
         else:
             X = check_array(X)
             n_samples = X.shape[0]
-            lof_scores = np.array([local_outlier_factor(min_pts=self.n_neighbors, p=X[i].reshape(1,-1), X=self.training_samples_) 
+            lof_scores = np.array([local_outlier_factor(min_pts=self.n_neighbors, p=X[i].reshape(1,-1), X=self.training_samples_, same_fit=None) 
                                    for i in range(n_samples)])
         return lof_scores
 
