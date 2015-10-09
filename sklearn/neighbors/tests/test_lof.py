@@ -1,7 +1,6 @@
 import numpy as np
 from sklearn import neighbors
 
-from numpy.testing import assert_almost_equal
 from numpy.testing import assert_array_equal
 
 from sklearn.metrics import roc_auc_score
@@ -12,7 +11,7 @@ from sklearn.utils.testing import assert_array_almost_equal
 
 def test_lof():
     # toy sample (the last two samples are outliers)
-    X = [[-2, -1], [-1, -1], [-1, -2], [1, 1], [1, 2], [2, 1], [5, 3], [-4, 2]] 
+    X = [[-2, -1], [-1, -1], [-1, -2], [1, 1], [1, 2], [2, 1], [5, 3], [-4, 2]]
 
     # Test LOF
     clf = neighbors.LOF()

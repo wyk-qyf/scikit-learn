@@ -18,85 +18,88 @@ class LOFMixin(object):
     """Mixin for Local-Outlier-Factor computation"""
 
     def k_distance(self, X=None):
-        """ 
-        Compute the k_distance and the neighborhood of querry samples X wrt self._fit_X 
+        """
+        Compute the k_distance and the neighborhood of querry samples X wrt
+        self._fit_X.
         If X=None, neighbors of each sample self._fit_X are returned.
         In this case, the query point is not considered its own neighbor.
         """
-        distances, neighbors_indices =  self.kneighbors(X=X, n_neighbors=self.n_neighbors)
+        distances, neighbors_indices = self.kneighbors(
+            X=X, n_neighbors=self.n_neighbors)
         neighbors_indices = neighbors_indices
         k_dist = distances[:, self.n_neighbors-1]
 
         return k_dist, neighbors_indices
 
-
     def local_reachability_density(self, p):
-        """The local reachability density (LRD) of p is the inverse of the average reachability
-        distance based on the self.n_neighbors-nearest neighbors of instance.
+        """The local reachability density (LRD) of p is the inverse of the
+        average reachability distance based on the self.n_neighbors-nearest
+        neighbors of instance.
 
         Parameters
         ----------
-    
+
         p : array-like of shape (n_samples, n_features)
         The samples to compute the LRD w.r.t. self._fit_X
-        If None, compute the LRD of self._fit_X w.r.t. to itself. 
+        If None, compute the LRD of self._fit_X w.r.t. to itself.
         (In this case samples are not considered in their own neighbourhood)
-    
+
         Returns
         -------
         local reachability density : float
-        The LRD of p. 
+        The LRD of p.
         """
-        
 
         p_0 = self._fit_X if p is None else p
+
         neighbors_indices = self.neighbors_indices_fit_X_ if p is None else self.k_distance(p)[1]
+
         n_jobs = _get_n_jobs(self.n_jobs)
-        dist = pairwise_distances(p_0, self._fit_X, 
-                                  self.effective_metric_, 
-                                  n_jobs=n_jobs, 
+
+        dist = pairwise_distances(p_0, self._fit_X,
+                                  self.effective_metric_,
+                                  n_jobs=n_jobs,
                                   **self.effective_metric_params_)
 
         reach_dist_array = np.zeros((p_0.shape[0], self.n_neighbors))
-
-        k_distance_value_fit_X = self.k_distance_value_fit_X_    
 
         for j in range(p_0.shape[0]):
             cpt = -1
             for i in neighbors_indices[j, :]:
                 cpt += 1
-                reach_dist_array[j, cpt] = np.max([self.k_distance_value_fit_X_[i],  dist[j, i]])
+                reach_dist_array[j, cpt] = np.max(
+                    [self.k_distance_value_fit_X_[i],  dist[j, i]])
 
         return self.n_neighbors / np.sum(reach_dist_array, axis=1)
 
-
     def local_outlier_factor(self, p):
-        """ The (local) outlier factor (LOF) of instance captures its supposed `degree of abnormality'.
-        It is the average of the ratio of the local reachability density of p and those of p's self.n_neighbors-NN.
+        """ The (local) outlier factor (LOF) of instance captures its
+        supposed `degree of abnormality'.
+        It is the average of the ratio of the local reachability density of p
+        and those of p's self.n_neighbors-NN.
 
         Parameters
         ----------
 
         p : array-like of shape (n_samples, n_features)
-        The points to compute the LOF w.r.t. training samples X=self._fit_X. Note that samples
-        p are not considered in the neighbourhood of X for computing local_reachability_density 
-        of samples X.
-        If None, compute LOF of self._fit_X w.r.t. to itself. 
-        (In this case samples are not considered in their own neighbourhood)
+        The points to compute the LOF w.r.t. training samples X=self._fit_X.
+        Note that samples p are not considered in the neighbourhood of X for
+        computing local_reachability_density of samples X.
+        If None, compute LOF of self._fit_X w.r.t. to itself. (In this case
+        samples are not considered in their own neighbourhood)
 
         Returns
         -------
         Local Outlier Factor : array-like of shape (n_samples,)
         The LOF of p. The lower, the more normal.
-    
+
         """
         p_0 = self._fit_X if p is None else p
 
-        neighbors_indices = self.k_distance(p)[1]
-
         self.k_distance_value_fit_X_, self.neighbors_indices_fit_X_ = self.k_distance(X=None)
-        # Compute it in fit()? 
-        # May be optimized (if p is not None) by only computing it for X = neighbors or neighbors of p
+        # Compute it in fit()?
+        # May be optimized (if p is not None) by only computing it for
+        # X = neighbors or neighbors of p
 
         self.neighbors_indices_p_ = self.neighbors_indices_fit_X_ if p is None else self.k_distance(p)[1]
 
@@ -192,30 +195,34 @@ class LOF(NeighborsBase, KNeighborsMixin, LOFMixin, UnsupervisedMixin):
 
     """
     def __init__(self, n_neighbors=5, algorithm='auto', leaf_size=30,
-                 metric='minkowski', p=2, metric_params=None, n_jobs=1, **kwargs):
+                 metric='minkowski', p=2, metric_params=None,
+                 n_jobs=1, **kwargs):
         self._init_params(n_neighbors=n_neighbors,
                           algorithm=algorithm,
                           leaf_size=leaf_size, metric=metric, p=p,
                           metric_params=metric_params, n_jobs=n_jobs, **kwargs)
 
-
     def predict(self, X=None, n_neighbors=None):
         """Predict LOF score of X.
-        The (local) outlier factor (LOF) of a instance p captures its supposed `degree of abnormality'.
-        It is the average of the ratio of the local reachability density of X and those of X's self.n_neighbors-NN.
+        The (local) outlier factor (LOF) of a instance p captures its supposed
+        `degree of abnormality'.
+        It is the average of the ratio of the local reachability density of X
+        and those of X's self.n_neighbors-NN.
 
         Parameters
         ----------
 
-        X : array-like, last dimension same as that of fit data, optional (default=None)
-        The querry sample or samples to compute the LOF wrt to the training samples.
-        If not provided, LOF of each training sample is returned. In this case, 
+        X : array-like, last dimension same as that of fit data, optional
+        (default=None)
+        The querry sample or samples to compute the LOF wrt to the training
+        samples.
+        If not provided, LOF of each training sample is returned. In this case,
         the query point is not considered its own neighbor.
 
         n_neighbors : int, optional
-        Number of neighbors to use for computing LOF (default is the value passed to
-        the constructor).
-    
+        Number of neighbors to use for computing LOF (default is the value
+        passed to the constructor).
+
         Returns
         -------
         lof_scores : array of shape (n_samples,)
@@ -223,34 +230,36 @@ class LOF(NeighborsBase, KNeighborsMixin, LOFMixin, UnsupervisedMixin):
         """
         if X is not None:
             X = check_array(X, accept_sparse='csr')
-        
-        if n_neighbors != None:
+
+        if n_neighbors is not None:
             self.n_neighbors = n_neighbors
 
         return self.local_outlier_factor(X)
 
-
     def decision_function(self, X=None, n_neighbors=None):
         """Opposite of the LOF score of X (as bigger is better).
-        The (local) outlier factor (LOF) of a instance p captures its supposed `degree of abnormality'.
-        It is the average of the ratio of the local reachability density of p and those of p's min_pts-NN.
+        The (local) outlier factor (LOF) of a instance p captures its supposed
+        `degree of abnormality'.
+        It is the average of the ratio of the local reachability density of p
+        and those of p's min_pts-NN.
 
         Parameters
         ----------
 
-        X : array-like, last dimension same as that of fit data, optional (default=None)
-        The querry sample or samples to compute the LOF wrt to the training samples.
-        If not provided, LOF of each training sample are returned. In this case, 
-        the query point is not considered its own neighbor.
-        
+        X : array-like, last dimension same as that of fit data, optional
+        (default=None)
+        The querry sample or samples to compute the LOF wrt to the training
+        samples.
+        If not provided, LOF of each training sample are returned. In this
+        case, the query point is not considered its own neighbor.
+
         n_neighbors : int, optional
-        Number of neighbors to use for computing LOF (default is the value passed to
-        the constructor).
-    
+        Number of neighbors to use for computing LOF (default is the value
+        passed to the constructor).
+
         Returns
         -------
         lof_scores : array of shape (n_samples,)
         The LOF score of each input samples. The lower, the more normal.
         """
         return -self.predict(X, n_neighbors)
-    
