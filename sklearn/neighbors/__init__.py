@@ -14,7 +14,6 @@ from .nearest_centroid import NearestCentroid
 from .kde import KernelDensity
 from .approximate import LSHForest
 from .lof import LOF
-from .lof2 import LOF2
 
 __all__ = ['BallTree',
            'DistanceMetric',
@@ -29,5 +28,4 @@ __all__ = ['BallTree',
            'radius_neighbors_graph',
            'KernelDensity',
            'LSHForest',
-           'LOF',
-           'LOF2']
+           'LOF']
