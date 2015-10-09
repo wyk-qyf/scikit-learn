@@ -26,7 +26,7 @@ class LOFMixin(object):
         distances, neighbors_indices =  self.kneighbors(X=X, n_neighbors=self.n_neighbors)
         neighbors_indices = neighbors_indices
         k_dist = distances[:, self.n_neighbors-1]
-        # print 'LOF k_distance returns:', k_dist, neighbors_indices
+
         return k_dist, neighbors_indices
 
 
@@ -49,35 +49,24 @@ class LOFMixin(object):
         """
         
 
-        p_ = self._fit_X if p is None else p
-        neighbors_indices = self.k_distance(p)[1]
+        p_0 = self._fit_X if p is None else p
+        neighbors_indices = self.neighbors_indices_fit_X_ if p is None else self.k_distance(p)[1]
         n_jobs = _get_n_jobs(self.n_jobs)
-        dist = pairwise_distances(p_, self._fit_X, 
+        dist = pairwise_distances(p_0, self._fit_X, 
                                   self.effective_metric_, 
                                   n_jobs=n_jobs, 
                                   **self.effective_metric_params_)
 
-        # dist = pairwise_distances(p, self._fit_X)
+        reach_dist_array = np.zeros((p_0.shape[0], self.n_neighbors))
 
-        reach_dist_array = np.zeros((p_.shape[0], self.n_neighbors))
+        k_distance_value_fit_X = self.k_distance_value_fit_X_    
 
-        k_distance_value_fit_X = self.k_distance(X=None)[0]    # k_distance() uses X=self._fit_x
-        ### XXX to be optimized: no need to compute everything, just X[i] with i in neighbors_indices
-        ### In case p is not None, 2 possibilities:
-        ### Consider or not the new value p[m] to compute the k_distance 
-        ###      (and thus the local_reachability_density) of samples self._fit_X
-        ### -Here we do not consider it. However, if p[m] is one of the training samples X:=self._fit_X,
-        ###      say p[m]=X[j] we consider X[j] to compute the LRD of p[m] (namely p[m] 
-        ###      belongs to its own neighbourhood). 
-        ### -To consider p[m] to compute the LRD of samples X, we should change temporary self._fit_X 
-        ###      in np.r_[self._fit_X, p[m]] or adapt self.k_distance.
-
-        for j in range(p_.shape[0]):
+        for j in range(p_0.shape[0]):
             cpt = -1
             for i in neighbors_indices[j, :]:
                 cpt += 1
-                reach_dist_array[j, cpt] = np.max([k_distance_value_fit_X[i],  dist[j, i]])
-        # print 'LOF local_reachability_density returns:', self.n_neighbors / np.sum(reach_dist_array, axis=1)
+                reach_dist_array[j, cpt] = np.max([self.k_distance_value_fit_X_[i],  dist[j, i]])
+
         return self.n_neighbors / np.sum(reach_dist_array, axis=1)
 
 
@@ -89,7 +78,9 @@ class LOFMixin(object):
         ----------
 
         p : array-like of shape (n_samples, n_features)
-        The points to compute the LOF w.r.t. self._fit_X
+        The points to compute the LOF w.r.t. training samples X=self._fit_X. Note that samples
+        p are not considered in the neighbourhood of X for computing local_reachability_density 
+        of samples X.
         If None, compute LOF of self._fit_X w.r.t. to itself. 
         (In this case samples are not considered in their own neighbourhood)
 
@@ -99,22 +90,30 @@ class LOFMixin(object):
         The LOF of p. The lower, the more normal.
     
         """
-        p_ = self._fit_X if p is None else p
+        p_0 = self._fit_X if p is None else p
+
         neighbors_indices = self.k_distance(p)[1]
-    
-        ##### Compute the local_reachibility_density of samples p:
+
+        self.k_distance_value_fit_X_, self.neighbors_indices_fit_X_ = self.k_distance(X=None)
+        # Compute it in fit()? 
+        # May be optimized (if p is not None) by only computing it for X = neighbors or neighbors of p
+
+        self.neighbors_indices_p_ = self.neighbors_indices_fit_X_ if p is None else self.k_distance(p)[1]
+
+        # Compute the local_reachibility_density of samples p:
         p_lrd = self.local_reachability_density(p)
-        lrd_ratios_array = np.zeros((p_.shape[0], self.n_neighbors))
+        lrd_ratios_array = np.zeros((p_0.shape[0], self.n_neighbors))
 
-        lrd = self.local_reachability_density(p=None)
+        # Avoid re-computing p_lrd if p is None:
+        lrd = p_lrd if p is None else self.local_reachability_density(p=None)
 
-        for j in range(p_.shape[0]):
+        for j in range(p_0.shape[0]):
             cpt = -1
-            for i in neighbors_indices[j, :]:
+            for i in self.neighbors_indices_p_[j, :]:
                 cpt += 1
                 i_lrd = lrd[i]
                 lrd_ratios_array[j, cpt] = i_lrd / p_lrd[j]
-#        print 'LOF local_outlier_factor returns:', np.sum(lrd_ratios_array, axis=1) / self.n_neighbors
+
         return np.sum(lrd_ratios_array, axis=1) / self.n_neighbors
 
 

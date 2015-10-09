@@ -7,6 +7,7 @@ from numpy.testing import assert_array_equal
 from sklearn.metrics import roc_auc_score
 from sklearn.utils import check_random_state
 from sklearn.utils.testing import assert_greater
+from sklearn.utils.testing import assert_array_almost_equal
 
 
 def test_lof():
@@ -43,3 +44,17 @@ def test_lof_performance():
 
     # check that roc_auc is good
     assert_greater(roc_auc_score(y_test, y_pred), .99)
+
+
+def test_lof_values():
+    # toy samples:
+    X_train = ([1, 1], [1, 2], [2, 1])
+    clf = neighbors.LOF(n_neighbors=2).fit(X_train)
+    s_0 = 2 * np.sqrt(2) / (1 + np.sqrt(2))
+    s_1 = (1 + np.sqrt(2)) * (1 / (4 * np.sqrt(2)) + 1 / (2 + 2 * np.sqrt(2)))
+    # check predict()
+    assert_array_almost_equal(clf.predict(), [s_0, s_1, s_1])
+    # check predict(one sample not in train)
+    assert_array_almost_equal(clf.predict([2, 2]), [s_0])
+    # check predict(one sample already in train)
+    assert_array_almost_equal(clf.predict([1, 1]), [s_1])
