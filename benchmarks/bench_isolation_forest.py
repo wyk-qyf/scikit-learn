@@ -19,7 +19,7 @@ from sklearn.utils import shuffle as sh
 np.random.seed(1)
 
 
-datasets = ['http', 'smtp', 'SA', 'SF', 'shuttle', 'forestcover']
+datasets = ['smtp'] #['http', 'smtp', 'SA', 'SF', 'shuttle', 'forestcover']
 
 for dat in datasets:
     # loading and vectorization
