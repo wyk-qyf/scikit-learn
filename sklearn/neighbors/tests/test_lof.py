@@ -1,7 +1,6 @@
 import numpy as np
 from sklearn import neighbors
 
-from numpy.testing import assert_almost_equal
 from numpy.testing import assert_array_equal
 
 from sklearn.metrics import roc_auc_score
@@ -12,12 +11,11 @@ from sklearn.utils.testing import assert_array_almost_equal
 
 def test_lof():
     # toy sample (the last two samples are outliers)
-    X = [[-2, -1], [-1, -1], [-1, -2], [1, 1], [1, 2], [2, 1], [5, 3], [-4, 2]] 
+    X = [[-2, -1], [-1, -1], [-1, -2], [1, 1], [1, 2], [2, 1], [5, 3], [-4, 2]]
 
     # Test LOF
     clf = neighbors.LOF()
-    clf.fit(X)
-    pred = clf.predict()
+    pred = clf.fit_predict(X)
     assert_array_equal(clf._fit_X, X)
 
     # assert detect outliers:
@@ -53,7 +51,7 @@ def test_lof_values():
     s_0 = 2 * np.sqrt(2) / (1 + np.sqrt(2))
     s_1 = (1 + np.sqrt(2)) * (1 / (4 * np.sqrt(2)) + 1 / (2 + 2 * np.sqrt(2)))
     # check predict()
-    assert_array_almost_equal(clf.predict(), [s_0, s_1, s_1])
+    assert_array_almost_equal(clf.fit_predict(X_train), [s_0, s_1, s_1])
     # check predict(one sample not in train)
     assert_array_almost_equal(clf.predict([2, 2]), [s_0])
     # check predict(one sample already in train)

@@ -14,9 +14,8 @@ different ways of performing :ref:`outlier_detection`:
   data set, hence performing better when the data is strongly
   non-Gaussian, i.e. with two well-separated clusters;
 
-- using the Isolation Forest algorithm, which is based on random forests and
-  hence more adapted to large-dimensional settings, even if it performs
-  quite well in the examples below.
+- using the Local Outlier Factor to measure the local deviation of a given
+  data point with respect to its neighbours by comparing their local density.
 
 The ground truth about inliers and outliers is given by the points colors
 while the orange-filled area indicates which points are reported as inliers
@@ -36,7 +35,7 @@ from scipy import stats
 
 from sklearn import svm
 from sklearn.covariance import EllipticEnvelope
-from sklearn.ensemble import IsolationForest
+from sklearn.neighbors import LOF
 
 # Example settings
 n_samples = 200
@@ -48,10 +47,10 @@ classifiers = {
     "One-Class SVM": svm.OneClassSVM(nu=0.95 * outliers_fraction + 0.05,
                                      kernel="rbf", gamma=0.1),
     "robust covariance estimator": EllipticEnvelope(contamination=.1),
-    "Isolation Forest": IsolationForest(max_samples=n_samples)}
+    "Local Outlier Factor": LOF(n_neighbors=35)}
 
 # Compare given classifiers under given settings
-xx, yy = np.meshgrid(np.linspace(-7, 7, 500), np.linspace(-7, 7, 500))
+xx, yy = np.meshgrid(np.linspace(-7, 7, 100), np.linspace(-7, 7, 100))
 n_inliers = int((1. - outliers_fraction) * n_samples)
 n_outliers = int(outliers_fraction * n_samples)
 ground_truth = np.ones(n_samples, dtype=int)
@@ -71,8 +70,12 @@ for i, offset in enumerate(clusters_separation):
     plt.figure(figsize=(10, 5))
     for i, (clf_name, clf) in enumerate(classifiers.items()):
         # fit the data and tag outliers
-        clf.fit(X)
-        y_pred = clf.decision_function(X).ravel()
+
+        if clf_name=="Local Outlier Factor":
+            y_pred = -clf.fit_predict(X).ravel()
+        else:
+            clf.fit(X)
+            y_pred = clf.decision_function(X).ravel()
         threshold = stats.scoreatpercentile(y_pred,
                                             100 * outliers_fraction)
         y_pred = y_pred > threshold
