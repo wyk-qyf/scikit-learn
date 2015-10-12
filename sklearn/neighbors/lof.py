@@ -19,6 +19,15 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
     """Unsupervised Outlier Detection.
 
     Return an anomaly score of each sample: its Local Outlier Factor.
+    It measures the local deviation of a given data point with respect to
+    its neighbours.
+    It is local in that the degree depends on how isolated the object is
+    with respect to the surrounding neighborhood.
+    More precisely, locality is given by k nearest neighbors, whose distance
+    is used to estimate the local density.
+    By comparing the local density of an object to the local densities of
+    its neighbors, one can identify points that have a substantially lower
+    density than their neighbors. These are considered to be outliers.
 
 
     Parameters
@@ -149,7 +158,7 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
         return self._local_outlier_factor()
 
 
-    def decision_function(self, X=None, n_neighbors=None):
+    def decision_function(self, X):
         """Opposite of the LOF score of X (as bigger is better).
 
         The (local) outlier factor (LOF) of a instance p captures its supposed
@@ -164,12 +173,6 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
             (default=None)
             The querry sample or samples to compute the LOF wrt to the training
             samples.
-            If not provided, LOF of each training sample are returned. In this
-            case, the query point is not considered its own neighbor.
-
-        n_neighbors : int, optional
-            Number of neighbors to use for computing LOF (default is the value
-            passed to the constructor).
 
         Returns
         -------

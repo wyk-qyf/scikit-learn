@@ -3,7 +3,7 @@
 Outlier detection with several methods.
 ==========================================
 
-When the amount of contamination is known, this example illustrates two
+When the amount of contamination is known, this example illustrates three
 different ways of performing :ref:`outlier_detection`:
 
 - based on a robust estimator of covariance, which is assuming that the
@@ -13,6 +13,9 @@ different ways of performing :ref:`outlier_detection`:
 - using the One-Class SVM and its ability to capture the shape of the
   data set, hence performing better when the data is strongly
   non-Gaussian, i.e. with two well-separated clusters;
+
+- using the Local Outlier Factor to measure the local deviation of a given
+  data point with respect to its neighbours by comparing their local density.
 
 The ground truth about inliers and outliers is given by the points colors
 while the orange-filled area indicates which points are reported as inliers
@@ -32,6 +35,7 @@ from scipy import stats
 
 from sklearn import svm
 from sklearn.covariance import EllipticEnvelope
+from sklearn.neighbors import LOF
 
 # Example settings
 n_samples = 200
@@ -42,10 +46,11 @@ clusters_separation = [0, 1, 2]
 classifiers = {
     "One-Class SVM": svm.OneClassSVM(nu=0.95 * outliers_fraction + 0.05,
                                      kernel="rbf", gamma=0.1),
-    "robust covariance estimator": EllipticEnvelope(contamination=.1)}
+    "robust covariance estimator": EllipticEnvelope(contamination=.1),
+    "Local Outlier Factor": LOF(n_neighbors=35)}
 
 # Compare given classifiers under given settings
-xx, yy = np.meshgrid(np.linspace(-7, 7, 500), np.linspace(-7, 7, 500))
+xx, yy = np.meshgrid(np.linspace(-7, 7, 100), np.linspace(-7, 7, 100))
 n_inliers = int((1. - outliers_fraction) * n_samples)
 n_outliers = int(outliers_fraction * n_samples)
 ground_truth = np.ones(n_samples, dtype=int)
@@ -61,12 +66,16 @@ for i, offset in enumerate(clusters_separation):
     # Add outliers
     X = np.r_[X, np.random.uniform(low=-6, high=6, size=(n_outliers, 2))]
 
-    # Fit the model with the One-Class SVM
+    # Fit the model
     plt.figure(figsize=(10, 5))
     for i, (clf_name, clf) in enumerate(classifiers.items()):
         # fit the data and tag outliers
-        clf.fit(X)
-        y_pred = clf.decision_function(X).ravel()
+
+        if clf_name=="Local Outlier Factor":
+            y_pred = -clf.fit_predict(X).ravel()
+        else:
+            clf.fit(X)
+            y_pred = clf.decision_function(X).ravel()
         threshold = stats.scoreatpercentile(y_pred,
                                             100 * outliers_fraction)
         y_pred = y_pred > threshold
@@ -74,7 +83,7 @@ for i, offset in enumerate(clusters_separation):
         # plot the levels lines and the points
         Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
         Z = Z.reshape(xx.shape)
-        subplot = plt.subplot(1, 2, i + 1)
+        subplot = plt.subplot(1, 3, i + 1)
         subplot.set_title("Outlier detection")
         subplot.contourf(xx, yy, Z, levels=np.linspace(Z.min(), threshold, 7),
                          cmap=plt.cm.Blues_r)
