@@ -123,7 +123,7 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
 
         return self._local_outlier_factor(X)
 
-    def fit_predict(self, X):
+    def fit_predict(self, X, y=None):
         """Predict LOF score of X.
 
         The (local) outlier factor (LOF) of a instance p captures its supposed
@@ -144,7 +144,7 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
             The LOF score of each input samples. The lower, the more normal.
         """
         X = check_array(X, accept_sparse='csr')
-        self._fit(X)
+        self.fit(X)
 
         return self._local_outlier_factor()
 
@@ -214,10 +214,14 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
 
         neighbors_indices = self.neighbors_indices_fit_X_ if p is None else self._k_distance(p)[1]
 
-        dist = pairwise_distances(p_0, self._fit_X,
-                                  self.effective_metric_,
-                                  n_jobs=self.get_n_jobs_,
-                                  **self.effective_metric_params_)
+        # for efficiency, use squared euclidean distances
+        if self.effective_metric_ == 'euclidean':
+            dist = pairwise_distances(p_0, self._fit_X, 'euclidean',
+                                      n_jobs=self.get_n_jobs_, squared=True)
+        else:
+            dist = pairwise_distances(
+                p_0, self._fit_X, self.effective_metric_, n_jobs=self.get_n_jobs_,
+                **self.effective_metric_params_)
 
         reach_dist_array = np.zeros((p_0.shape[0], self.n_neighbors))
 
@@ -225,8 +229,12 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
             neighbors_number = -1
             for i in neighbors_indices[j, :]:
                 neighbors_number += 1
-                reach_dist_array[j, neighbors_number] = np.max(
-                    [self._k_distance_value_fit_X_[i],  dist[j, i]])
+                if self.effective_metric_ == 'euclidean':
+                    reach_dist_array[j, neighbors_number] = np.max(
+                        [self._k_distance_value_fit_X_[i],  np.sqrt(dist[j, i])])
+                else:
+                    reach_dist_array[j, neighbors_number] = np.max(
+                        [self._k_distance_value_fit_X_[i],  dist[j, i]])
 
         return self.n_neighbors / np.sum(reach_dist_array, axis=1)
 
