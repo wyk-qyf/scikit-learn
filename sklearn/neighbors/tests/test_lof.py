@@ -13,8 +13,8 @@ def test_lof():
     # toy sample (the last two samples are outliers)
     X = [[-2, -1], [-1, -1], [-1, -2], [1, 1], [1, 2], [2, 1], [5, 3], [-4, 2]]
 
-    # Test LOF
-    clf = neighbors.LOF()
+    # Test LocalOutlierFactor
+    clf = neighbors.LocalOutlierFactor()
     pred = clf.fit_predict(X)
     assert_array_equal(clf._fit_X, X)
 
@@ -35,7 +35,7 @@ def test_lof_performance():
     y_test = np.array([0] * 20 + [1] * 20)
 
     # fit the model
-    clf = neighbors.LOF().fit(X_train)
+    clf = neighbors.LocalOutlierFactor().fit(X_train)
 
     # predict scores (the lower, the more normal)
     y_pred = clf.predict(X_test)
@@ -47,7 +47,7 @@ def test_lof_performance():
 def test_lof_values():
     # toy samples:
     X_train = ([1, 1], [1, 2], [2, 1])
-    clf = neighbors.LOF(n_neighbors=2).fit(X_train)
+    clf = neighbors.LocalOutlierFactor(n_neighbors=2).fit(X_train)
     s_0 = 2 * np.sqrt(2) / (1 + np.sqrt(2))
     s_1 = (1 + np.sqrt(2)) * (1 / (4 * np.sqrt(2)) + 1 / (2 + 2 * np.sqrt(2)))
     # check predict()
