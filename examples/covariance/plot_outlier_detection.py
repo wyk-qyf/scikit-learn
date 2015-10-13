@@ -35,7 +35,7 @@ from scipy import stats
 
 from sklearn import svm
 from sklearn.covariance import EllipticEnvelope
-from sklearn.neighbors import LOF
+from sklearn.neighbors import LocalOutlierFactor
 
 # Example settings
 n_samples = 200
@@ -47,7 +47,7 @@ classifiers = {
     "One-Class SVM": svm.OneClassSVM(nu=0.95 * outliers_fraction + 0.05,
                                      kernel="rbf", gamma=0.1),
     "robust covariance estimator": EllipticEnvelope(contamination=.1),
-    "Local Outlier Factor": LOF(n_neighbors=35)}
+    "Local Outlier Factor": LocalOutlierFactor(n_neighbors=35)}
 
 # Compare given classifiers under given settings
 xx, yy = np.meshgrid(np.linspace(-7, 7, 100), np.linspace(-7, 7, 100))
@@ -71,7 +71,7 @@ for i, offset in enumerate(clusters_separation):
     for i, (clf_name, clf) in enumerate(classifiers.items()):
         # fit the data and tag outliers
 
-        if clf_name=="Local Outlier Factor":
+        if clf_name == "Local Outlier Factor":
             y_pred = -clf.fit_predict(X).ravel()
         else:
             clf.fit(X)

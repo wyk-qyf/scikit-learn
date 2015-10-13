@@ -11,11 +11,11 @@ from ..metrics import pairwise_distances
 from ..utils import check_array
 from ..utils import _get_n_jobs
 
-__all__ = ["LOF"]
+__all__ = ["LocalOutlierFactor"]
 
 
 
-class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
+class LocalOutlierFactor(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
     """Unsupervised Outlier Detection.
 
     Return an anomaly score of each sample: its Local Outlier Factor.
@@ -109,7 +109,7 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
         self.get_n_jobs_ = _get_n_jobs(self.n_jobs)
  
     def predict(self, X):
-        """Predict LOF score of X.
+        """Predict Local Outlier Factor of X.
 
         The (local) outlier factor (LOF) of a instance p captures its supposed
         `degree of abnormality'.
@@ -118,22 +118,23 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
 
         Parameters
         ----------
-        X : array-like, last dimension same as that of fit data, optional
-            (default=None)
-            The querry sample or samples to compute the LOF wrt to the training
-            samples.
+        X : array-like, shape (n_samples, n_features)
+            n_features same as that of fit data
+            The querry sample or samples to compute the Local Outlier Factor
+            wrt to the training samples.
 
         Returns
         -------
         lof_scores : array of shape (n_samples,)
-            The LOF score of each input samples. The lower, the more normal.
+            The Local Outlier Factor of each input samples. The lower,
+        the more normal.
         """
         X = check_array(X, accept_sparse='csr')
 
         return self._local_outlier_factor(X)
 
     def fit_predict(self, X, y=None):
-        """Predict LOF score of X.
+        """Predict the Local Outlier Factor of X.
 
         The (local) outlier factor (LOF) of a instance p captures its supposed
         `degree of abnormality'.
@@ -150,7 +151,8 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
         Returns
         -------
         lof_scores : array of shape (n_samples,)
-            The LOF score of each input samples. The lower, the more normal.
+            The Local Outlier Factor of each input samples. The lower,
+            the more normal.
         """
         X = check_array(X, accept_sparse='csr')
         self.fit(X)
@@ -159,7 +161,7 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
 
 
     def decision_function(self, X):
-        """Opposite of the LOF score of X (as bigger is better).
+        """Opposite of the Local Outlier Factor of X (as bigger is better).
 
         The (local) outlier factor (LOF) of a instance p captures its supposed
         `degree of abnormality'.
@@ -171,13 +173,14 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
 
         X : array-like, last dimension same as that of fit data, optional
             (default=None)
-            The querry sample or samples to compute the LOF wrt to the training
-            samples.
+            The querry sample or samples to compute the Local Outlier Factor
+            wrt to the training samples.
 
         Returns
         -------
         lof_scores : array of shape (n_samples,)
-            The LOF score of each input samples. The lower, the more abnormal.
+            The Local Outlier Factor of each input samples. The lower,
+            the more abnormal.
         """
         return -self.predict(X)
 
@@ -215,7 +218,8 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
 
         p_0 = self._fit_X if p is None else p
 
-        neighbors_indices = self.neighbors_indices_fit_X_ if p is None else self._k_distance(p)[1]
+        neighbors_indices = \
+            self.neighbors_indices_fit_X_ if p is None else self._k_distance(p)[1]
 
         # for efficiency, use squared euclidean distances
         if self.effective_metric_ == 'euclidean':
@@ -264,12 +268,14 @@ class LOF(NeighborsBase, KNeighborsMixin, UnsupervisedMixin):
         """
         p_0 = self._fit_X if p is None else p
 
-        self._k_distance_value_fit_X_, self.neighbors_indices_fit_X_ = self._k_distance(p=None)
+        self._k_distance_value_fit_X_, self.neighbors_indices_fit_X_ = \
+                                                        self._k_distance(p=None)
         # Compute it in fit()?
         # May be optimized (if p is not None) by only computing it for
         # X = neighbors or neighbors of p
 
-        self.neighbors_indices_p_ = self.neighbors_indices_fit_X_ if p is None else self._k_distance(p)[1]
+        self.neighbors_indices_p_ = \
+            self.neighbors_indices_fit_X_ if p is None else self._k_distance(p)[1]
 
         # Compute the local_reachibility_density of samples p:
         p_lrd = self._local_reachability_density(p)

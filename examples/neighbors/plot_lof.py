@@ -1,16 +1,16 @@
 """
 ==========================================
-LOF example
+LocalOutlierFactor example
 ==========================================
 
-An example using LOF for anomaly detection.
+An example using LocalOutlierFactor for anomaly detection.
 
 """
 print(__doc__)
 
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.neighbors import LOF
+from sklearn.neighbors import LocalOutlierFactor
 
 np.random.seed(42)
 
@@ -24,7 +24,7 @@ X_test = np.r_[X + 2, X - 2]
 X_outliers = np.random.uniform(low=-4, high=4, size=(20, 2))
 
 # fit the model
-clf = LOF()
+clf = LocalOutlierFactor()
 clf.fit(X_train)
 y_pred_train = clf.predict(X_train)
 y_pred_test = clf.predict(X_test)
@@ -35,7 +35,7 @@ xx, yy = np.meshgrid(np.linspace(-5, 5, 50), np.linspace(-5, 5, 50))
 Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
 Z = Z.reshape(xx.shape)
 
-plt.title("LOF")
+plt.title("LocalOutlierFactor")
 plt.contourf(xx, yy, Z, cmap=plt.cm.Blues_r)
 
 b1 = plt.scatter(X_train[:, 0], X_train[:, 1], c='white')
