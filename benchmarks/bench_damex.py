@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import IsolationForest
 from sklearn.manifold import Damex
 from sklearn.metrics import roc_curve, auc
-from sklearn.datasets import load_kddcup99, fetch_covtype, fetch_mldata
+from sklearn.datasets import fetch_kddcup99, fetch_covtype, fetch_mldata
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.utils import shuffle as sh
 
@@ -25,7 +25,7 @@ for dat in datasets:
     # loading and vectorization
     print('loading data')
     if dat in ['http', 'smtp', 'SA', 'SF']:
-        dataset = load_kddcup99(subset=dat, shuffle=True, percent10=True)
+        dataset = fetch_kddcup99(subset=dat, shuffle=True, percent10=True)
         X = dataset.data
         y = dataset.target
 
