@@ -1,3 +1,4 @@
+# Authors: Nicolas Goix <nicolas.goix@telecom-paristech.fr>
 # -*- coding: utf-8 -*-
 
 import numpy as np
@@ -16,7 +17,7 @@ from ..base import BaseEstimator
 # WARNING : Damex is inefficient on data whose infinite norm is less 
 # than the extrem threshold n_train/k_train 
 # (because DAMEX intentionnaly do not learn on training data < n/k)
-# Damex is efficient to know if an extrem value (>n/k) is or not an anomaly
+# Damex is efficient to detect if an extrem value (>n/k) is or not an anomaly
 
 
 class Damex(BaseEstimator):
@@ -203,7 +204,7 @@ def damex_scoring(X, mu_train, epsilon, k_pow, with_rectangles, n_threshold_extr
             x = X[i, :]
             norm_x = np.max(np.abs(x))
             # if norm_x < float(n_threshold_extreme) / k_train:
-            #     print 'WARNING : what happens is not possible if transform=True'
+            #     print 'WARNING : what's happening is not possible if transform=True'
             #    scores[i] = 1.
             if norm_x < threshold_extreme:
                 Warn += 1
