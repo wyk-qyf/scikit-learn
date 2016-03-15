@@ -4,6 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import interp
+from ..ensemble import IsolationForest
 from ..metrics import roc_curve, auc, roc_auc_score, precision_recall_curve
 from ..cross_validation import StratifiedKFold
 from ..base import BaseEstimator
@@ -20,7 +21,8 @@ from ..base import BaseEstimator
 # Damex is efficient to detect if an extrem value (>n/k) is or not an anomaly
 
 
-class Damex(BaseEstimator):
+        
+class Damex_alone(BaseEstimator):
     """   
     DAMEX algorithm
     Return the anomaly score of each sample with the DAMEX algorithm
@@ -71,7 +73,7 @@ class Damex(BaseEstimator):
         threshold beyond which data are considered as extreme
     """
 
-    def __init__(self, epsilon=0.01, k_pow=1./2, with_rectangles=False,
+    def __init__(self, epsilon=0.01, k_pow=1./2, with_rectangles=True,
                  n_threshold_extreme=None, pruning_faces_coef=0.1, with_norm=True, 
                  with_transform=True):
         self.epsilon = epsilon
@@ -83,12 +85,12 @@ class Damex(BaseEstimator):
         self.pruning_faces_coef = pruning_faces_coef
 
     def fit(self, X, y=None):
+        # n_threshold_extreme != None enable to pass an argument n_threshold_extreme 
+        # different from the number of data in X_train:
+        if self.n_threshold_extreme==None:   
+            self.n_threshold_extreme = X.shape[0]
         if self.with_transform == True:
             self.R = order(X)
-            # n_threshold_extreme != None enable to pass an argument n_threshold_extreme 
-            # different from the number of data in X_train:
-            if self.n_threshold_extreme==None:   
-                self.n_threshold_extreme = X.shape[0]
             X = self.transform(X)
         self.mu, self.threshold_extreme = damex_train(X, self.epsilon, self.k_pow, self.with_rectangles, self.n_threshold_extreme, self.pruning_faces_coef)
         return self
@@ -208,19 +210,20 @@ def damex_scoring(X, mu_train, epsilon, k_pow, with_rectangles, n_threshold_extr
             #    scores[i] = 1.
             if norm_x < threshold_extreme:
                 Warn += 1
+            if with_rectangles:
+                alpha = (x >= epsilon * threshold_extreme)  # * np.sqrt(n_threshold_extreme))
             else:
-                if with_rectangles:
-                    alpha = (x >= epsilon * threshold_extreme)  # * np.sqrt(n_threshold_extreme))
-                else:
-                    alpha = (x >= epsilon * norm_x)
-                num_face = nombre(alpha, d)
-                dim_face = sum(alpha)
-                # print 'dim face', dim_face
-                if mu_train.has_key(num_face):
-                    scores[i] = mu_train[num_face] / (norm_x)  # * vol_face) 
-                    mass += 1.
-                else:
-                    scores[i] = 0
+                alpha = (x >= epsilon * norm_x)
+            num_face = nombre(alpha, d)
+            dim_face = sum(alpha)
+            #print 'dim face', dim_face
+            if mu_train.has_key(num_face):
+                scores[i] = mu_train[num_face] / (norm_x)  # * vol_face) 
+                mass += 1.
+            else:
+                scores[i] = 0
+            if sum(alpha)==0: # ( data under epsilon * threshold)
+                scores[i]=1.  # considered as normal data
     else:
         for i in range(n_test) :
             x = X[i, :]
@@ -300,3 +303,88 @@ def nombre(alpha, d):
     for a in alpha:
         alpha_str = alpha_str + str(int(a))
     return alpha_str
+
+class Damex(Damex_alone):
+    """   
+    DAMEX algorithm
+    Return the anomaly score of each sample with the DAMEX algorithm
+
+    Parameters
+    ----------
+    epsilon : float, optional (default=0.01)
+            tolerance parameter for epsilon-thickened cones or rectangles
+            (needed since a face has zero Leb volume) 
+            ('width' of a face)
+
+    k_pow : int, optional (default=0.5)
+        exposant of n yielding k = n^k_pow
+        can be view as the number of higher values considered as extreme
+        and used to estimate the exponent measure mu
+
+    with_rectangles : bool, optional (default=False)
+        weither to use epsilon-thickened cones or rectangles
+
+    n_threshold_extreme : int, optional (default=None)
+        if None, n_threshold_extreme = n 
+        n_threshold_extreme is used to compute the threshold defining extreme 
+        region: threshold_extrem = float(n_threshold_extreme) / k with
+        k = np.power(n_threshold_extreme, k_pow)
+
+    pruning_faces_coef: float in [0,1), optional (default=0.1)
+        coef to remove week faces. Faces with mass less than 
+        pruning_faces_coef * averaged mass will be removed in the estimate 
+        of the exponent measure mu
+
+    with_norm : bool, optional (default=True)
+        weither to use the norm or only the angle to detect anomalies
+
+    with_transform : bool, optional (default=True)
+        weither to transform the marginal in standard Pareto
+        The theory behind the algorithm depends on this standard transformation
+
+    estimator : estimator to use on non-extreme data (default=IsolationForest)
+                If None, use damex on non-extreme data (not recommended).
+
+    Attributes
+    -------
+    mu : type 'dict'
+        Angular measure
+        Each face is indexed by its binary value 
+        example: in dimension 3, '010' represents the face corresponding 
+                 to the second feature. Samples assigned to this face have
+                 (only) their second coordinate large.
+        
+    threshold_extreme : float
+        threshold beyond which data are considered as extreme
+    """
+    def __init__(self, epsilon=0.1, k_pow=1./3, with_rectangles=True,
+                 n_threshold_extreme=None, pruning_faces_coef=0.1, with_norm=True, 
+                 with_transform=True, estimator=IsolationForest()):
+        super(Damex, self).__init__(epsilon, k_pow, with_rectangles,
+                                    n_threshold_extreme, pruning_faces_coef, with_norm, 
+                                    with_transform)
+        self.estimator = estimator
+
+    def fit(self, X, y=None):
+        super(Damex, self).fit(X)
+        if self.estimator is not None:
+            self.estimator.fit(X)
+        return self
+        
+    def predict(self, X):
+        if self.estimator is None:
+            return super(Damex, self).predict(X)
+        else:
+            scores = np.zeros(X.shape[0])
+
+            indices_under_th = np.max(self.transform(X), axis=1) < self.threshold_extreme
+            indices_above_th = np.max(self.transform(X), axis=1) > self.threshold_extreme
+            X_above = X[indices_above_th]
+            X_under = X[indices_under_th]
+
+            scores[indices_above_th] = super(Damex, self).predict(X_above)
+            scores[indices_under_th] = self.estimator.predict(X_under)
+            return scores
+
+    def decision_function(self, X):
+        return self.predict(X)
