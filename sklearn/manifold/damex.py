@@ -4,7 +4,9 @@
 import numpy as np
 from ..ensemble import IsolationForest
 from ..base import BaseEstimator
+from ..utils import check_array
 
+import pdb
 
 # WARNING : Damex is inefficient on data whose infinite norm is less
 # than the extrem threshold n_train/k_train
@@ -13,60 +15,11 @@ from ..base import BaseEstimator
 
 
 class Damex_alone(BaseEstimator):
-    """
-    DAMEX algorithm
-    Return the anomaly score of each sample with the DAMEX algorithm
 
-    Parameters
-    ----------
-    epsilon : float, optional (default=0.01)
-            tolerance parameter for epsilon-thickened cones or rectangles
-            (needed since a face has zero Leb volume)
-            ('width' of a face)
-
-    k_pow : int, optional (default=0.5)
-        exposant of n yielding k = n^k_pow
-        can be view as the number of higher values considered as extreme
-        and used to estimate the exponent measure mu
-
-    with_rectangles : bool, optional (default=False)
-        weither to use epsilon-thickened cones or rectangles
-
-    n_threshold_extreme : int, optional (default=None)
-        if None, n_threshold_extreme = n
-        n_threshold_extreme is used to compute the threshold defining extreme
-        region: threshold_extrem = float(n_threshold_extreme) / k with
-        k = np.power(n_threshold_extreme, k_pow)
-
-    pruning_faces_coef: float in [0,1), optional (default=0.1)
-        coef to remove week faces. Faces with mass less than
-        pruning_faces_coef * averaged mass will be removed in the estimate
-        of the exponent measure mu
-
-    with_norm : bool, optional (default=True)
-        weither to use the norm or only the angle to detect anomalies
-
-    with_transform : bool, optional (default=True)
-        weither to transform the marginal in standard Pareto
-        The theory behind the algorithm depends on this standard transformation
-
-    Attributes
-    -------
-    mu : type 'dict'
-        Angular measure
-        Each face is indexed by its binary value
-        example: in dimension 3, '010' represents the face corresponding
-                 to the second feature. Samples assigned to this face have
-                 (only) their second coordinate large.
-
-    threshold_extreme : float
-        threshold beyond which data are considered as extreme
-    """
-
-    def __init__(self, epsilon=0.01, k_pow=1./2, with_rectangles=True,
-                 n_threshold_extreme=None, pruning_faces_coef=0.1,
-                 with_norm=True,
-                 with_transform=True):
+    def __init__(self, epsilon, k_pow, with_rectangles,
+                 n_threshold_extreme, pruning_faces_coef,
+                 with_norm,
+                 with_transform):
         self.epsilon = epsilon
         self.k_pow = k_pow
         self.with_norm = with_norm
@@ -83,11 +36,13 @@ class Damex_alone(BaseEstimator):
         if self.with_transform is True:
             self.R = order(X)
             X = self.transform(X)
-        self.mu, self.threshold_extreme = damex_train(X, self.epsilon,
-                                                      self.k_pow,
-                                                      self.with_rectangles,
-                                                      self.n_threshold_extreme,
-                                                      self.pruning_faces_coef)
+        self.mu, self.mu_unthresholded, self.threshold_extreme = damex_train(
+            X,
+            self.epsilon,
+            self.k_pow,
+            self.with_rectangles,
+            self.n_threshold_extreme,
+            self.pruning_faces_coef)
         return self
 
     def predict(self, X):
@@ -132,16 +87,15 @@ def damex_train(X, epsilon, k_pow, with_rectangles, n_threshold_extreme,
 
     """
     n, d = np.shape(X)
-    print 'damex_train, n_threshold_extreme=', n_threshold_extreme
     k = np.power(n_threshold_extreme, k_pow)
-    threshold_extreme = float(n_threshold_extreme) / (k)
+    threshold_extreme = float(n_threshold_extreme) / k
     mu = {}
     for i in range(n):
         x = X[i, :]
         norm_x = np.max(np.abs(x))
         if norm_x > threshold_extreme:
             if with_rectangles:
-                alpha = (x >= epsilon * threshold_extreme)  # * np.sqrt(n_threshold_extreme))
+                alpha = (x >= epsilon * threshold_extreme)
             else:
                 alpha = (x >= epsilon * norm_x)
             num_face = nombre(alpha, d)
@@ -150,11 +104,10 @@ def damex_train(X, epsilon, k_pow, with_rectangles, n_threshold_extreme,
             else:
                 mu[num_face] = 1./k
 
-    # print 'mu before threshold:', mu.keys()
-    mu = threshold_faces(mu, pruning_faces_coef)
-    # print 'mu after threshold:', mu.keys()
-    mu = threshold_faces(mu, pruning_faces_coef)  # XXX double prunning
-    return mu, threshold_extreme
+    mu_thresholded = threshold_faces(mu, pruning_faces_coef)
+    # double prunning
+    mu_thresholded = threshold_faces(mu_thresholded, pruning_faces_coef)
+    return mu_thresholded, mu, threshold_extreme
 
 
 def damex_scoring(X, mu_train, epsilon, k_pow, with_rectangles,
@@ -183,7 +136,6 @@ def damex_scoring(X, mu_train, epsilon, k_pow, with_rectangles,
                                                     mass in the training step)
     """
 
-    print 'damex_scoring function, n_threshold_extreme=', n_threshold_extreme
     k = np.power(n_threshold_extreme, k_pow)
     threshold_extreme = float(n_threshold_extreme) / k
     n_test, d = np.shape(X)
@@ -194,9 +146,6 @@ def damex_scoring(X, mu_train, epsilon, k_pow, with_rectangles,
         for i in range(n_test):
             x = X[i, :]
             norm_x = np.max(np.abs(x))
-            # if norm_x < float(n_threshold_extreme) / k_train:
-            #    print 'WARNING : what's happening is not possible if transform=True'
-            #    scores[i] = 1.
             if norm_x < threshold_extreme:
                 Warn += 1
             if with_rectangles:
@@ -249,7 +198,7 @@ def threshold_faces(mu, t):
     threshold = (sum(mu.values()) / len(mu))
     mu_ = mu.copy()
     for i in mu_.keys():
-        if mu_[i] <  t * threshold:
+        if mu_[i] < t * threshold:
             del mu_[i]
     return mu_
 
@@ -301,7 +250,7 @@ class Damex(Damex_alone):
 
     Parameters
     ----------
-    epsilon : float, optional (default=0.01)
+    epsilon : float, optional (default=0.1)
             tolerance parameter for epsilon-thickened cones or rectangles
             (needed since a face has zero Leb volume)
             ('width' of a face)
@@ -347,7 +296,7 @@ class Damex(Damex_alone):
     threshold_extreme : float
         threshold beyond which data are considered as extreme
     """
-    def __init__(self, epsilon=0.1, k_pow=1./3, with_rectangles=True,
+    def __init__(self, epsilon=0.1, k_pow=1./2, with_rectangles=True,
                  n_threshold_extreme=None, pruning_faces_coef=0.1,
                  with_norm=True, with_transform=True,
                  estimator=IsolationForest()):
@@ -357,12 +306,14 @@ class Damex(Damex_alone):
         self.estimator = estimator
 
     def fit(self, X, y=None):
+        X = check_array(X)
         super(Damex, self).fit(X)
         if self.estimator is not None:
             self.estimator.fit(X)
         return self
 
     def predict(self, X):
+        X = check_array(X)
         if self.estimator is None:
             return super(Damex, self).predict(X)
         else:
@@ -375,8 +326,10 @@ class Damex(Damex_alone):
             X_above = X[indices_above_th]
             X_under = X[indices_under_th]
 
-            scores[indices_above_th] = super(Damex, self).predict(X_above)
-            scores[indices_under_th] = self.estimator.predict(X_under)
+            if X_above.shape[0] > 0:
+                scores[indices_above_th] = super(Damex, self).predict(X_above)
+            if X_under.shape[0] > 0:
+                scores[indices_under_th] = self.estimator.predict(X_under)
             return scores
 
     def decision_function(self, X):
