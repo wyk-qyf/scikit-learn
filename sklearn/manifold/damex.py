@@ -5,6 +5,7 @@ import numpy as np
 from ..ensemble import IsolationForest
 from ..base import BaseEstimator
 from ..utils import check_array
+from ..preprocessing import scale
 
 import pdb
 
@@ -330,6 +331,17 @@ class Damex(Damex_alone):
                 scores[indices_above_th] = super(Damex, self).predict(X_above)
             if X_under.shape[0] > 0:
                 scores[indices_under_th] = self.estimator.predict(X_under)
+
+            # normalization with iforest:
+            scores[indices_under_th] = scale(scores[indices_under_th])
+            scores[indices_above_th] = scale(scores[indices_above_th])
+            scores[indices_above_th] *= self.threshold_extreme
+            # scores[indices_above_th] += 0.1
+            # mean = self.estimator.predict(X_above).mean()
+            # std = self.estimator.predict(X_above).std()
+            # scores[indices_above_th] /= scores[indices_above_th].std()
+            # scores[indices_above_th] += mean - scores[indices_above_th].mean()
+            # scores[indices_above_th] *= std
             return scores
 
     def decision_function(self, X):
