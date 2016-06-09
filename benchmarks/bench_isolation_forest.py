@@ -10,119 +10,118 @@ print(__doc__)
 
 from time import time
 import numpy as np
+
 import matplotlib.pyplot as plt
+
 from sklearn.ensemble import IsolationForest
-from sklearn.metrics import roc_curve, auc
-from sklearn.datasets import fetch_kddcup99, fetch_covtype, fetch_mldata
-from sklearn.preprocessing import LabelBinarizer
+from sklearn.metrics import roc_curve, precision_recall_curve, auc
+from sklearn.datasets import one_class_data
+
 from sklearn.utils import shuffle as sh
+from scipy.interpolate import interp1d
 
 np.random.seed(1)
 
-datasets = ['http', 'smtp', 'SA', 'SF', 'shuttle', 'forestcover']
+# training only on normal data?
+novelty_detection = True
 
-fig_roc, ax_roc = plt.subplots(1, 1, figsize=(8, 5))
+nb_exp = 5
 
+# # datasets available:
+# datasets = ['http', 'smtp', 'SA', 'SF', 'shuttle', 'forestcover',
+#             'ionosphere', 'spambase', 'annthyroid', 'arrhythmia',
+#             'pendigits', 'pima', 'wilt','internet_ads', 'adult']
+
+# continuous datasets:
+datasets = ['http', 'smtp', 'shuttle', 'forestcover',
+            'ionosphere', 'spambase', 'annthyroid', 'arrhythmia',
+            'pendigits', 'pima', 'wilt', 'adult']
+
+
+plt.figure(figsize=(25, 17))
 
 for dat in datasets:
     # loading and vectorization
-    print('loading data')
-    if dat in ['http', 'smtp', 'SA', 'SF']:
-        dataset = fetch_kddcup99(subset=dat, shuffle=True, percent10=True)
-        X = dataset.data
-        y = dataset.target
+    X, y = one_class_data(dat)
 
-    if dat == 'shuttle':
-        dataset = fetch_mldata('shuttle')
-        X = dataset.data
-        y = dataset.target
-        X, y = sh(X, y)
-        # we remove data with label 4
-        # normal data are then those of class 1
-        s = (y != 4)
-        X = X[s, :]
-        y = y[s]
-        y = (y != 1).astype(int)
-
-    if dat == 'forestcover':
-        dataset = fetch_covtype(shuffle=True)
-        X = dataset.data
-        y = dataset.target
-        # normal data are those with attribute 2
-        # abnormal those with attribute 4
-        s = (y == 2) + (y == 4)
-        X = X[s, :]
-        y = y[s]
-        y = (y != 2).astype(int)
-
-    print('vectorizing data')
-
-    if dat == 'SF':
-        lb = LabelBinarizer()
-        lb.fit(X[:, 1])
-        x1 = lb.transform(X[:, 1])
-        X = np.c_[X[:, :1], x1, X[:, 2:]]
-        y = (y != 'normal.').astype(int)
-
-    if dat == 'SA':
-        lb = LabelBinarizer()
-        lb.fit(X[:, 1])
-        x1 = lb.transform(X[:, 1])
-        lb.fit(X[:, 2])
-        x2 = lb.transform(X[:, 2])
-        lb.fit(X[:, 3])
-        x3 = lb.transform(X[:, 3])
-        X = np.c_[X[:, :1], x1, x2, x3, X[:, 4:]]
-        y = (y != 'normal.').astype(int)
-
-    if dat == 'http' or dat == 'smtp':
-        y = (y != 'normal.').astype(int)
-
-    n_samples, n_features = X.shape
+    n_samples, n_features = np.shape(X)
     n_samples_train = n_samples // 2
+    n_samples_test = n_samples - n_samples_train
 
-    X = X.astype(float)
-    X_train = X[:n_samples_train, :]
-    X_test = X[n_samples_train:, :]
-    y_train = y[:n_samples_train]
-    y_test = y[n_samples_train:]
+    n_axis = 1000
+    x_axis = np.linspace(0, 1, n_axis)
+    tpr = np.zeros(n_axis)
+    precision = np.zeros(n_axis)
+    fit_time = 0
+    predict_time = 0
 
-    print('IsolationForest processing...')
-    model = IsolationForest(n_jobs=-1)
-    tstart = time()
-    model.fit(X_train)
-    fit_time = time() - tstart
-    tstart = time()
+    for ne in range(nb_exp):
+        print 'exp num:', ne
+        X, y = sh(X, y)
 
-    scoring = - model.decision_function(X_test)  # the lower, the more normal
+        X_train = X[:n_samples_train, :]
+        X_test = X[n_samples_train:, :]
+        y_train = y[:n_samples_train]
+        y_test = y[n_samples_train:]
 
-    # Show score histograms
-    fig, ax = plt.subplots(3, sharex=True, sharey=True)
-    bins = np.linspace(-0.5, 0.5, 200)
-    ax[0].hist(scoring, bins, color='black')
-    ax[0].set_title('decision function for %s dataset' % dat)
-    ax[0].legend(loc="lower right")
-    ax[1].hist(scoring[y_test == 0], bins, color='b',
-               label='normal data')
-    ax[1].legend(loc="lower right")
-    ax[2].hist(scoring[y_test == 1], bins, color='r',
-               label='outliers')
-    ax[2].legend(loc="lower right")
+        if novelty_detection:
+            # training only on normal data:
+            X_train = X_train[y_train == 0]
+            y_train = y_train[y_train == 0]
 
-    # Show ROC Curves
-    predict_time = time() - tstart
-    fpr, tpr, thresholds = roc_curve(y_test, scoring)
-    AUC = auc(fpr, tpr)
-    label = ('%s (area: %0.3f, train-time: %0.2fs, '
-             'test-time: %0.2fs)' % (dat, AUC, fit_time, predict_time))
-    ax_roc.plot(fpr, tpr, lw=1, label=label)
+        print('IsolationForest processing...')
+        model = IsolationForest()
+        tstart = time()
+        model.fit(X_train)
+        fit_time += time() - tstart
+        tstart = time()
 
+        # the lower,the more normal:
+        scoring = -model.decision_function(X_test)
+        predict_time += time() - tstart
+        fpr_, tpr_, thresholds_ = roc_curve(y_test, scoring)
 
-ax_roc.set_xlim([-0.05, 1.05])
-ax_roc.set_ylim([-0.05, 1.05])
-ax_roc.set_xlabel('False Positive Rate')
-ax_roc.set_ylabel('True Positive Rate')
-ax_roc.set_title('Receiver operating characteristic (ROC) curves')
-ax_roc.legend(loc="lower right")
-fig_roc.tight_layout()
+        f = interp1d(fpr_, tpr_)
+        tpr += f(x_axis)
+        tpr[0] = 0.
+
+        precision_, recall_ = precision_recall_curve(y_test, scoring)[:2]
+
+        # cluster: old version of scipy -> interpol1d needs sorted x_input
+        arg_sorted = recall_.argsort()
+        recall_ = recall_[arg_sorted]
+        precision_ = precision_[arg_sorted]
+
+        f = interp1d(recall_, precision_)
+        precision += f(x_axis)
+
+    tpr /= float(nb_exp)
+    fit_time /= float(nb_exp)
+    predict_time /= float(nb_exp)
+    AUC = auc(x_axis, tpr)
+    precision /= float(nb_exp)
+    precision[0] = 1.
+    AUPR = auc(x_axis, precision)
+
+    plt.subplot(121)
+    plt.plot(x_axis, tpr, lw=1, label='%s (area = %0.3f, train-time: %0.2fs, test-time: %0.2fs)' % (dat, AUC, fit_time, predict_time))
+
+    plt.xlim([-0.05, 1.05])
+    plt.ylim([-0.05, 1.05])
+    plt.xlabel('False Positive Rate', fontsize=25)
+    plt.ylabel('True Positive Rate', fontsize=25)
+    plt.title('Receiver operating characteristic for IsolationForest',
+              fontsize=25)
+    plt.legend(loc="lower right", prop={'size': 15})
+
+    plt.subplot(122)
+    plt.plot(x_axis, precision, lw=1, label='%s (area = %0.3f)'
+             % (dat, AUPR))
+    plt.xlim([-0.05, 1.05])
+    plt.ylim([-0.05, 1.05])
+    plt.xlabel('Recall', fontsize=25)
+    plt.ylabel('Precision', fontsize=25)
+    plt.title('Precision-Recall curve', fontsize=25)
+    plt.legend(loc="lower right", prop={'size': 15})
+
 plt.show()

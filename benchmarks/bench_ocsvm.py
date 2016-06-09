@@ -1,9 +1,9 @@
 """
 ==========================================
-LocalOutlierFactor benchmark
+OneClassSVM benchmark
 ==========================================
 
-A test of LocalOutlierFactor on classical anomaly detection datasets.
+A test of OneClassSVM on classical anomaly detection datasets.
 
 """
 print(__doc__)
@@ -11,9 +11,8 @@ print(__doc__)
 from time import time
 import numpy as np
 
-import matplotlib.pyplot as plt
-
-from sklearn.neighbors import LocalOutlierFactor
+from matplotlib import pyplot as plt
+from sklearn.svm import OneClassSVM
 from sklearn.metrics import roc_curve, precision_recall_curve, auc
 from sklearn.datasets import one_class_data
 from sklearn.utils import shuffle as sh
@@ -24,7 +23,11 @@ np.random.seed(1)
 
 # training only on normal data?
 novelty_detection = True
+
 nb_exp = 5
+
+# limit the number n of training samples for ocsvm as it scale in n*2:
+ocsvm_max_train = 50000
 
 
 # # datasets available:
@@ -45,6 +48,8 @@ for dat in datasets:
 
     n_samples, n_features = np.shape(X)
     n_samples_train = n_samples // 2
+    # OCSVM training on max ocsvm_max_train data:
+    n_samples_train = min(n_samples // 2, ocsvm_max_train)
     n_samples_test = n_samples - n_samples_train
 
     n_axis = 1000
@@ -68,14 +73,15 @@ for dat in datasets:
             X_train = X_train[y_train == 0]
             y_train = y_train[y_train == 0]
 
-        print('LocalOutlierFactor processing...')
-        model = LocalOutlierFactor(n_neighbors=20)
+        print('OneClassSVM processing...')
+        model = OneClassSVM(cache_size=500)
         tstart = time()
         model.fit(X_train)
         fit_time += time() - tstart
         tstart = time()
 
-        scoring = -model.decision_function(X_test)  # the lower,the more normal
+        # the lower, the more normal:
+        scoring = -model.decision_function(X_test)
         predict_time += time() - tstart
         fpr_, tpr_, thresholds_ = roc_curve(y_test, scoring)
 
@@ -108,7 +114,7 @@ for dat in datasets:
     plt.ylim([-0.05, 1.05])
     plt.xlabel('False Positive Rate', fontsize=25)
     plt.ylabel('True Positive Rate', fontsize=25)
-    plt.title('Receiver operating characteristic for LocalOutlierFactor', fontsize=25)
+    plt.title('Receiver operating characteristic for OneClassSVM', fontsize=25)
     plt.legend(loc="lower right", prop={'size': 15})
 
     plt.subplot(122)
