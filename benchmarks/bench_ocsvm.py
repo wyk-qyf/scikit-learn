@@ -108,14 +108,14 @@ for dat in datasets:
     AUPR = auc(x_axis, precision)
 
     plt.subplot(121)
-    plt.plot(x_axis, tpr, lw=1, label='%s (area = %0.3f, train-time: %0.2fs, test-time: %0.2fs)' % (dat, AUC, fit_time, predict_time))
+    plt.plot(x_axis, tpr, lw=1, label='%s (area = %0.3f, train: %0.2fs, test: %0.2fs)' % (dat, AUC, fit_time, predict_time))
 
     plt.xlim([-0.05, 1.05])
     plt.ylim([-0.05, 1.05])
     plt.xlabel('False Positive Rate', fontsize=25)
     plt.ylabel('True Positive Rate', fontsize=25)
-    plt.title('Receiver operating characteristic for OneClassSVM', fontsize=25)
-    plt.legend(loc="lower right", prop={'size': 15})
+    plt.title('ROC for OneClassSVM', fontsize=25)
+    plt.legend(loc="lower right", prop={'size': 12})
 
     plt.subplot(122)
     plt.plot(x_axis, precision, lw=1, label='%s (area = %0.3f)'
@@ -124,7 +124,7 @@ for dat in datasets:
     plt.ylim([-0.05, 1.05])
     plt.xlabel('Recall', fontsize=25)
     plt.ylabel('Precision', fontsize=25)
-    plt.title('Precision-Recall curve', fontsize=25)
-    plt.legend(loc="lower right", prop={'size': 15})
+    plt.title('PR curve', fontsize=25)
+    plt.legend(loc="lower right", prop={'size': 12})
 
 plt.show()
