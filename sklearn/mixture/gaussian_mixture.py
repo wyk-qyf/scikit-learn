@@ -2,6 +2,7 @@
 
 # Author: Wei Xue <xuewei4d@gmail.com>
 # Modified by Thierry Guillemot <thierry.guillemot.work@gmail.com>
+# License: BSD 3 clause
 
 import numpy as np
 
@@ -11,6 +12,7 @@ from .base import BaseMixture, _check_shape
 from ..externals.six.moves import zip
 from ..utils import check_array
 from ..utils.validation import check_is_fitted
+from ..utils.extmath import row_norms
 
 
 ###############################################################################
@@ -18,15 +20,12 @@ from ..utils.validation import check_is_fitted
 
 def _check_weights(weights, n_components):
     """Check the user provided 'weights'.
-
     Parameters
     ----------
     weights : array-like, shape (n_components,)
         The proportions of components of each mixture.
-
     n_components : int
         Number of components.
-
     Returns
     -------
     weights : array, shape (n_components,)
@@ -51,18 +50,14 @@ def _check_weights(weights, n_components):
 
 def _check_means(means, n_components, n_features):
     """Validate the provided 'means'.
-
     Parameters
     ----------
     means : array-like, shape (n_components, n_features)
         The centers of the current components.
-
     n_components : int
         Number of components.
-
     n_features : int
         Number of features.
-
     Returns
     -------
     means : array, (n_components, n_features)
@@ -95,7 +90,6 @@ def _check_precisions_full(precisions, covariance_type):
 
 def _check_precisions(precisions, covariance_type, n_components, n_features):
     """Validate user provided precisions.
-
     Parameters
     ----------
     precisions : array-like,
@@ -103,15 +97,11 @@ def _check_precisions(precisions, covariance_type, n_components, n_features):
         'tied' : shape of (n_features, n_features)
         'diag' : shape of (n_components, n_features)
         'spherical' : shape of (n_components,)
-
     covariance_type : string
-
     n_components : int
         Number of components.
-
     n_features : int
         Number of features.
-
     Returns
     -------
     precisions : array
@@ -140,19 +130,13 @@ def _check_precisions(precisions, covariance_type, n_components, n_features):
 
 def _estimate_gaussian_covariances_full(resp, X, nk, means, reg_covar):
     """Estimate the full covariance matrices.
-
     Parameters
     ----------
     resp : array-like, shape (n_samples, n_components)
-
     X : array-like, shape (n_samples, n_features)
-
     nk : array-like, shape (n_components,)
-
     means : array-like, shape (n_components, n_features)
-
     reg_covar : float
-
     Returns
     -------
     covariances : array, shape (n_components, n_features, n_features)
@@ -169,48 +153,35 @@ def _estimate_gaussian_covariances_full(resp, X, nk, means, reg_covar):
 
 def _estimate_gaussian_covariances_tied(resp, X, nk, means, reg_covar):
     """Estimate the tied covariance matrix.
-
     Parameters
     ----------
     resp : array-like, shape (n_samples, n_components)
-
     X : array-like, shape (n_samples, n_features)
-
     nk : array-like, shape (n_components,)
-
     means : array-like, shape (n_components, n_features)
-
     reg_covar : float
-
     Returns
     -------
     covariance : array, shape (n_features, n_features)
         The tied covariance matrix of the components.
     """
-    n_samples, _ = X.shape
     avg_X2 = np.dot(X.T, X)
     avg_means2 = np.dot(nk * means.T, means)
     covariance = avg_X2 - avg_means2
-    covariance /= n_samples
+    covariance /= nk.sum()
     covariance.flat[::len(covariance) + 1] += reg_covar
     return covariance
 
 
 def _estimate_gaussian_covariances_diag(resp, X, nk, means, reg_covar):
     """Estimate the diagonal covariance vectors.
-
     Parameters
     ----------
     responsibilities : array-like, shape (n_samples, n_components)
-
     X : array-like, shape (n_samples, n_features)
-
     nk : array-like, shape (n_components,)
-
     means : array-like, shape (n_components, n_features)
-
     reg_covar : float
-
     Returns
     -------
     covariances : array, shape (n_components, n_features)
@@ -224,19 +195,13 @@ def _estimate_gaussian_covariances_diag(resp, X, nk, means, reg_covar):
 
 def _estimate_gaussian_covariances_spherical(resp, X, nk, means, reg_covar):
     """Estimate the spherical variance values.
-
     Parameters
     ----------
     responsibilities : array-like, shape (n_samples, n_components)
-
     X : array-like, shape (n_samples, n_features)
-
     nk : array-like, shape (n_components,)
-
     means : array-like, shape (n_components, n_features)
-
     reg_covar : float
-
     Returns
     -------
     variances : array, shape (n_components,)
@@ -248,29 +213,22 @@ def _estimate_gaussian_covariances_spherical(resp, X, nk, means, reg_covar):
 
 def _estimate_gaussian_parameters(X, resp, reg_covar, covariance_type):
     """Estimate the Gaussian distribution parameters.
-
     Parameters
     ----------
     X : array-like, shape (n_samples, n_features)
         The input data array.
-
     resp : array-like, shape (n_samples, n_features)
         The responsibilities for each data sample in X.
-
     reg_covar : float
         The regularization added to the diagonal of the covariance matrices.
-
     covariance_type : {'full', 'tied', 'diag', 'spherical'}
         The type of precision matrices.
-
     Returns
     -------
     nk : array-like, shape (n_components,)
         The numbers of data samples in the current components.
-
     means : array-like, shape (n_components, n_features)
         The centers of the current components.
-
     covariances : array-like
         The covariance matrix of the current components.
         The shape depends of the covariance_type.
@@ -287,16 +245,13 @@ def _estimate_gaussian_parameters(X, resp, reg_covar, covariance_type):
 
 def _compute_precision_cholesky(covariances, covariance_type):
     """Compute the Cholesky decomposition of the precisions.
-
     Parameters
     ----------
     covariances : array-like
         The covariance matrix of the current components.
         The shape depends of the covariance_type.
-
     covariance_type : {'full', 'tied', 'diag', 'spherical'}
         The type of precision matrices.
-
     Returns
     -------
     precisions_cholesky : array-like
@@ -336,124 +291,101 @@ def _compute_precision_cholesky(covariances, covariance_type):
 
 ###############################################################################
 # Gaussian mixture probability estimators
-def _estimate_log_gaussian_prob_full(X, means, precisions_chol):
-    """Estimate the log Gaussian probability for 'full' precision.
+def _compute_log_det_cholesky(matrix_chol, covariance_type, n_features):
+    """Compute the log-det of the cholesky decomposition of matrices.
+    Parameters
+    ----------
+    matrix_chol : array-like,
+        Cholesky decompositions of the matrices.
+        'full' : shape of (n_components, n_features, n_features)
+        'tied' : shape of (n_features, n_features)
+        'diag' : shape of (n_components, n_features)
+        'spherical' : shape of (n_components,)
+    covariance_type : {'full', 'tied', 'diag', 'spherical'}
+    n_features : int
+        Number of features.
+    Returns
+    -------
+    log_det_precision_chol : array-like, shape (n_components,)
+        The determinant of the cholesky decomposition.
+        matrix.
+    """
+    if covariance_type == 'full':
+        n_components, _, _ = matrix_chol.shape
+        log_det_chol = (np.sum(np.log(
+            matrix_chol.reshape(
+                n_components, -1)[:, ::n_features + 1]), 1))
 
+    elif covariance_type == 'tied':
+        log_det_chol = (np.sum(np.log(np.diag(matrix_chol))))
+
+    elif covariance_type == 'diag':
+        log_det_chol = (np.sum(np.log(matrix_chol), axis=1))
+
+    else:
+        log_det_chol = n_features * (np.log(matrix_chol))
+
+    return log_det_chol
+
+
+def _estimate_log_gaussian_prob(X, means, precisions_chol, covariance_type):
+    """Estimate the log Gaussian probability.
     Parameters
     ----------
     X : array-like, shape (n_samples, n_features)
-
     means : array-like, shape (n_components, n_features)
-
-    precisions_chol : array-like, shape (n_components, n_features, n_features)
+    precisions_chol : array-like,
         Cholesky decompositions of the precision matrices.
-
+        'full' : shape of (n_components, n_features, n_features)
+        'tied' : shape of (n_features, n_features)
+        'diag' : shape of (n_components, n_features)
+        'spherical' : shape of (n_components,)
+    covariance_type : {'full', 'tied', 'diag', 'spherical'}
     Returns
     -------
     log_prob : array, shape (n_samples, n_components)
     """
     n_samples, n_features = X.shape
     n_components, _ = means.shape
-    log_prob = np.empty((n_samples, n_components))
-    for k, (mu, prec_chol) in enumerate(zip(means, precisions_chol)):
-        log_det = -2. * np.sum(np.log(np.diagonal(prec_chol)))
-        y = np.dot(X - mu, prec_chol)
-        log_prob[:, k] = -.5 * (n_features * np.log(2. * np.pi) + log_det +
-                                np.sum(np.square(y), axis=1))
-    return log_prob
+    # det(precision_chol) is half of det(precision)
+    log_det = _compute_log_det_cholesky(
+        precisions_chol, covariance_type, n_features)
 
+    if covariance_type == 'full':
+        log_prob = np.empty((n_samples, n_components))
+        for k, (mu, prec_chol) in enumerate(zip(means, precisions_chol)):
+            y = np.dot(X, prec_chol) - np.dot(mu, prec_chol)
+            log_prob[:, k] = np.sum(np.square(y), axis=1)
 
-def _estimate_log_gaussian_prob_tied(X, means, precision_chol):
-    """Estimate the log Gaussian probability for 'tied' precision.
+    elif covariance_type == 'tied':
+        log_prob = np.empty((n_samples, n_components))
+        for k, mu in enumerate(means):
+            y = np.dot(X, precisions_chol) - np.dot(mu, precisions_chol)
+            log_prob[:, k] = np.sum(np.square(y), axis=1)
 
-    Parameters
-    ----------
-    X : array-like, shape (n_samples, n_features)
+    elif covariance_type == 'diag':
+        precisions = precisions_chol ** 2
+        log_prob = (np.sum((means ** 2 * precisions), 1) -
+                    2. * np.dot(X, (means * precisions).T) +
+                    np.dot(X ** 2, precisions.T))
 
-    means : array-like, shape (n_components, n_features)
-
-    precision_chol : array-like, shape (n_features, n_features)
-        Cholesky decomposition of the precision matrix.
-
-    Returns
-    -------
-    log_prob : array-like, shape (n_samples, n_components)
-    """
-    n_samples, n_features = X.shape
-    n_components, _ = means.shape
-    log_prob = np.empty((n_samples, n_components))
-    log_det = -2. * np.sum(np.log(np.diagonal(precision_chol)))
-    for k, mu in enumerate(means):
-        y = np.dot(X - mu, precision_chol)
-        log_prob[:, k] = np.sum(np.square(y), axis=1)
-    log_prob = -.5 * (n_features * np.log(2. * np.pi) + log_det + log_prob)
-    return log_prob
-
-
-def _estimate_log_gaussian_prob_diag(X, means, precisions_chol):
-    """Estimate the log Gaussian probability for 'diag' precision.
-
-    Parameters
-    ----------
-    X : array-like, shape (n_samples, n_features)
-
-    means : array-like, shape (n_components, n_features)
-
-    precisions_chol : array-like, shape (n_components, n_features)
-        Cholesky decompositions of the precision matrices.
-
-    Returns
-    -------
-    log_prob : array-like, shape (n_samples, n_components)
-    """
-    n_samples, n_features = X.shape
-    precisions = precisions_chol ** 2
-    log_prob = -.5 * (n_features * np.log(2. * np.pi) -
-                      np.sum(np.log(precisions), 1) +
-                      np.sum((means ** 2 * precisions), 1) -
-                      2. * np.dot(X, (means * precisions).T) +
-                      np.dot(X ** 2, precisions.T))
-    return log_prob
-
-
-def _estimate_log_gaussian_prob_spherical(X, means, precisions_chol):
-    """Estimate the log Gaussian probability for 'spherical' precision.
-
-    Parameters
-    ----------
-    X : array-like, shape (n_samples, n_features)
-
-    means : array-like, shape (n_components, n_features)
-
-    precisions_chol : array-like, shape (n_components, )
-        Cholesky decompositions of the precision matrices.
-
-    Returns
-    -------
-    log_prob : array-like, shape (n_samples, n_components)
-    """
-    n_samples, n_features = X.shape
-    precisions = precisions_chol ** 2
-    log_prob = -.5 * (n_features * np.log(2 * np.pi) -
-                      n_features * np.log(precisions) +
-                      np.sum(means ** 2, 1) * precisions -
-                      2 * np.dot(X, means.T * precisions) +
-                      np.outer(np.sum(X ** 2, axis=1), precisions))
-    return log_prob
+    elif covariance_type == 'spherical':
+        precisions = precisions_chol ** 2
+        log_prob = (np.sum(means ** 2, 1) * precisions -
+                    2 * np.dot(X, means.T * precisions) +
+                    np.outer(row_norms(X, squared=True), precisions))
+    return -.5 * (n_features * np.log(2 * np.pi) + log_prob) + log_det
 
 
 class GaussianMixture(BaseMixture):
     """Gaussian Mixture.
-
     Representation of a Gaussian mixture model probability distribution.
     This class allows to estimate the parameters of a Gaussian mixture
     distribution.
-
     Parameters
     ----------
     n_components : int, defaults to 1.
         The number of mixture components.
-
     covariance_type : {'full', 'tied', 'diag', 'spherical'},
         defaults to 'full'.
         String describing the type of covariance parameters to use.
@@ -462,36 +394,28 @@ class GaussianMixture(BaseMixture):
         'tied' (all components share the same general covariance matrix),
         'diag' (each component has its own diagonal covariance matrix),
         'spherical' (each component has its own single variance),
-
     tol : float, defaults to 1e-3.
         The convergence threshold. EM iterations will stop when the
         log_likelihood average gain is below this threshold.
-
     reg_covar : float, defaults to 0.
         Non-negative regularization added to the diagonal of covariance.
         Allows to assure that the covariance matrices are all positive.
-
     max_iter : int, defaults to 100.
         The number of EM iterations to perform.
-
     n_init : int, defaults to 1.
-        The number of initializations to perform. The best results is kept.
-
+        The number of initializations to perform. The best results are kept.
     init_params : {'kmeans', 'random'}, defaults to 'kmeans'.
         The method used to initialize the weights, the means and the
         precisions.
         Must be one of::
         'kmeans' : responsibilities are initialized using kmeans.
         'random' : responsibilities are initialized randomly.
-
     weights_init : array-like, shape (n_components, ), optional
         The user-provided initial weights, defaults to None.
         If it None, weights are initialized using the `init_params` method.
-
     means_init: array-like, shape (n_components, n_features), optional
         The user-provided initial means, defaults to None,
         If it None, means are initialized using the `init_params` method.
-
     precisions_init: array-like, optional.
         The user-provided initial precisions (inverse of the covariance
         matrices), defaults to None.
@@ -501,29 +425,23 @@ class GaussianMixture(BaseMixture):
             (n_features, n_features)               if 'tied',
             (n_components, n_features)             if 'diag',
             (n_components, n_features, n_features) if 'full'
-
     random_state: RandomState or an int seed, defaults to None.
         A random number generator instance.
-
     warm_start : bool, default to False.
         If 'warm_start' is True, the solution of the last fitting is used as
         initialization for the next call of fit(). This can speed up
         convergence when fit is called several time on similar problems.
-
     verbose : int, default to 0.
         Enable verbose output. If 1 then it prints the current
         initialization and each iteration step. If greater than 1 then
         it prints also the log probability and the time needed
         for each step.
-
     Attributes
     ----------
     weights_ : array-like, shape (n_components,)
         The weights of each mixture components.
-
     means_ : array-like, shape (n_components, n_features)
         The mean of each mixture component.
-
     covariances_ : array-like
         The covariance of each mixture component.
         The shape depends on `covariance_type`::
@@ -531,7 +449,6 @@ class GaussianMixture(BaseMixture):
             (n_features, n_features)               if 'tied',
             (n_components, n_features)             if 'diag',
             (n_components, n_features, n_features) if 'full'
-
     precisions_ : array-like
         The precision matrices for each component in the mixture. A precision
         matrix is the inverse of a covariance matrix. A covariance matrix is
@@ -544,7 +461,6 @@ class GaussianMixture(BaseMixture):
             (n_features, n_features)               if 'tied',
             (n_components, n_features)             if 'diag',
             (n_components, n_features, n_features) if 'full'
-
     precisions_cholesky_ : array-like
         The cholesky decomposition of the precision matrices of each mixture
         component. A precision matrix is the inverse of a covariance matrix.
@@ -557,12 +473,16 @@ class GaussianMixture(BaseMixture):
             (n_features, n_features)               if 'tied',
             (n_components, n_features)             if 'diag',
             (n_components, n_features, n_features) if 'full'
-
     converged_ : bool
         True when convergence was reached in fit(), False otherwise.
-
     n_iter_ : int
         Number of step used by the best fit of EM to reach the convergence.
+    lower_bound_ : float
+        Log-likelihood of the best fit of EM.
+    See Also
+    --------
+    BayesianGaussianMixture : Finite gaussian mixture model fit with a
+        variational algorithm.
     """
 
     def __init__(self, n_components=1, covariance_type='full', tol=1e-3,
@@ -606,11 +526,9 @@ class GaussianMixture(BaseMixture):
 
     def _initialize(self, X, resp):
         """Initialization of the Gaussian mixture parameters.
-
         Parameters
         ----------
         X : array-like, shape (n_samples, n_features)
-
         resp : array-like, shape (n_samples, n_components)
         """
         n_samples, _ = X.shape
@@ -638,7 +556,7 @@ class GaussianMixture(BaseMixture):
             self.precisions_cholesky_ = self.precisions_init
 
     def _e_step(self, X):
-        log_prob_norm, _, log_resp = self._estimate_log_prob_resp(X)
+        log_prob_norm, log_resp = self._estimate_log_prob_resp(X)
         return np.mean(log_prob_norm), np.exp(log_resp)
 
     def _m_step(self, X, resp):
@@ -651,24 +569,25 @@ class GaussianMixture(BaseMixture):
             self.covariances_, self.covariance_type)
 
     def _estimate_log_prob(self, X):
-        return {"full": _estimate_log_gaussian_prob_full,
-                "tied": _estimate_log_gaussian_prob_tied,
-                "diag": _estimate_log_gaussian_prob_diag,
-                "spherical": _estimate_log_gaussian_prob_spherical
-                }[self.covariance_type](X, self.means_,
-                                        self.precisions_cholesky_)
+        return _estimate_log_gaussian_prob(
+            X, self.means_, self.precisions_cholesky_, self.covariance_type)
 
     def _estimate_log_weights(self):
         return np.log(self.weights_)
+
+    def _compute_lower_bound(self, _, log_prob_norm):
+        return log_prob_norm
 
     def _check_is_fitted(self):
         check_is_fitted(self, ['weights_', 'means_', 'precisions_cholesky_'])
 
     def _get_parameters(self):
-        return self.weights_, self.means_, self.precisions_cholesky_
+        return (self.weights_, self.means_, self.covariances_,
+                self.precisions_cholesky_)
 
     def _set_parameters(self, params):
-        self.weights_, self.means_, self.precisions_cholesky_ = params
+        (self.weights_, self.means_, self.covariances_,
+         self.precisions_cholesky_) = params
 
         # Attributes computation
         _, n_features = self.means_.shape
@@ -700,11 +619,9 @@ class GaussianMixture(BaseMixture):
 
     def bic(self, X):
         """Bayesian information criterion for the current model on the input X.
-
         Parameters
         ----------
         X : array of shape (n_samples, n_dimensions)
-
         Returns
         -------
         bic: float
@@ -715,11 +632,9 @@ class GaussianMixture(BaseMixture):
 
     def aic(self, X):
         """Akaike information criterion for the current model on the input X.
-
         Parameters
         ----------
         X : array of shape(n_samples, n_dimensions)
-
         Returns
         -------
         aic: float
