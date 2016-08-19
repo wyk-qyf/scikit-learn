@@ -36,7 +36,7 @@ nb_exp = 2
 datasets = ['shuttle', 'forestcover', 'ionosphere', 'spambase',
             'annthyroid', 'arrhythmia',
             'pendigits', 'pima', 'wilt', 'internet_ads', 'adult']
-
+#datasets=['pima', 'wilt']
 # # continuous datasets:
 # datasets = ['http', 'smtp', 'shuttle', 'forestcover',
 #             'ionosphere', 'spambase', 'annthyroid', 'arrhythmia',
@@ -153,47 +153,47 @@ for dat in datasets:
     AUPR_iforest += [auc(x_axis, precision_iforest)]
 
 plt.subplot(221)
-plt.xlim([-0.1, len(datasets) + 0.1])
+plt.xlim([-0.1, len(datasets)])
 plt.ylim([0., 1.])
 print range(len(datasets))
-plt.bar(range(len(datasets)), AUC_lof, width=0.05,
+plt.bar(range(len(datasets)), AUC_lof, width=0.3,
         color='blue', label='lof')
-plt.bar(np.array(range(len(datasets))) + 0.05, AUC_iforest, width=0.05,
+plt.bar(np.array(range(len(datasets))) + 0.3, AUC_iforest, width=0.3,
         color='red', label='iforest')
 
 # plt.xlabel('False Positive Rate', fontsize=25)
 # plt.ylabel('True Positive Rate', fontsize=25)
-plt.title('ROC for LocalOutlierFactor', fontsize=25)
+plt.title('ROC AUC', fontsize=25)
 plt.legend(loc="lower right", prop={'size': 12})
 
 plt.suptitle('datasets order: http, smtp, SA, SF, shuttle, forestcover '
              + 'ionosphere, spambase, annthyroid, arrhythmia, pendigits, pima '
              + 'wilt, internet_ads, adult')
 plt.subplot(222)
-plt.xlim([-0.1, len(datasets) + 0.1])
+plt.xlim([-0.1, len(datasets)])
 plt.ylim([0., 1.])
-plt.bar(range(len(datasets)), AUPR_lof, color='blue', width=0.05,
+plt.bar(range(len(datasets)), AUPR_lof, color='blue', width=0.3,
         label='lof')
-plt.bar(np.array(range(len(datasets))) + 0.05, AUPR_iforest, color='red',
-        width=0.05, label='iforest')
-plt.title('PR area', fontsize=25)
+plt.bar(np.array(range(len(datasets))) + 0.3, AUPR_iforest, color='red',
+        width=0.3, label='iforest')
+plt.title('PR AUC', fontsize=25)
 
 plt.subplot(223)
-plt.xlim([-0.1, len(datasets) + 0.1])
-plt.ylim([0., 1.])
-plt.bar(range(len(datasets)), fit_time_lof, color='blue', width=0.05,
+plt.xlim([-0.1, len(datasets)])
+plt.yscale('log')
+plt.bar(range(len(datasets)), fit_time_lof, color='blue', width=0.3,
         label='lof')
-plt.bar(np.array(range(len(datasets))) + 0.05, fit_time_iforest, color='red',
-        width=0.05, label='iforest')
+plt.bar(np.array(range(len(datasets))) + 0.3, fit_time_iforest, color='red',
+        width=0.3, label='iforest')
 plt.title('training time', fontsize=25)
 
 plt.subplot(224)
-plt.xlim([-0.1, len(datasets) + 0.1])
-plt.ylim([0., 1.])
-plt.bar(range(len(datasets)), predict_time_lof, color='blue', width=0.05,
+plt.xlim([-0.1, len(datasets)])
+plt.yscale('log')
+plt.bar(range(len(datasets)), predict_time_lof, color='blue', width=0.3,
         label='lof')
-plt.bar(np.array(range(len(datasets))) + 0.05, predict_time_iforest,
-        color='red', width=0.05, label='iforest')
+plt.bar(np.array(range(len(datasets))) + 0.3, predict_time_iforest,
+        color='red', width=0.3, label='iforest')
 plt.title('testing time', fontsize=25)
 
 plt.show()
